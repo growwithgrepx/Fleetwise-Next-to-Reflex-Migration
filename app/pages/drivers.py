@@ -100,9 +100,12 @@ def drivers_table() -> rx.Component:
         class_name="px-4 py-2 border-b",
     )
 
+    # Use rx.foreach to iterate over the Var list `DriverState.drivers`.
+    # Each `d` here is a Var representing the driver dict; access fields via .get or indexing.
     rows = rx.vstack(
-        *[
-            rx.hstack(
+        rx.foreach(
+            DriverState.drivers,
+            lambda d: rx.hstack(
                 rx.text(f"{d.get('first_name','')} {d.get('last_name','')}", class_name="w-1/4"),
                 rx.text(d.get('email',''), class_name="w-1/4"),
                 rx.text(d.get('phone',''), class_name="w-1/6"),
@@ -113,14 +116,13 @@ def drivers_table() -> rx.Component:
                 ),
                 rx.text(d.get('status',''), class_name="w-1/12"),
                 rx.hstack(
-                    rx.button("Edit", size="sm", on_click=lambda _d=d: DriverState.open_edit_modal(_d.get('id'))),
-                    rx.button("Delete", size="sm", on_click=lambda _d=d: DriverState.open_delete_confirm(_d.get('id')), class_name="ml-2 bg-red-600 text-white"),
+                    rx.button("Edit", size="sm", on_click=lambda _=None, _id=d.get('id'): DriverState.open_edit_modal(_id)),
+                    rx.button("Delete", size="sm", on_click=lambda _=None, _id=d.get('id'): DriverState.open_delete_confirm(_id), class_name="ml-2 bg-red-600 text-white"),
                     class_name="w-1/12 justify-end",
                 ),
                 class_name="px-4 py-3 border-b items-center",
-            )
-            for d in DriverState.drivers
-        ],
+            ),
+        ),
         spacing="0",
     )
 

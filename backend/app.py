@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from config import Config
-from models import db, User, Driver
+from .config import Config
+from .models import db, User, Driver
 import jwt
 from datetime import datetime, timedelta
 from functools import wraps
@@ -171,4 +171,4 @@ def init_db():
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, port=8000)
+    app.run(debug=True, port=5000)
