@@ -2,300 +2,162 @@ import reflex as rx
 from app.states.driver_state import DriverState
 from app.components.ui import md_button, md_input, md_card
 from app.components.sidebar import sidebar
-from app.app import require_login
 
-
-def _status_badge(status: rx.Var[str]) -> rx.Component:
-    return rx.el.span(
-        status,
-        class_name=rx.match(
-            status,
-            (
-                "Active",
-                "bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full",
-            ),
-            (
-                "Inactive",
-                "bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full",
-            ),
-            "bg-gray-100 text-gray-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full",
-        ),
+def status_badge(status: str) -> rx.Component:
+    """Render a status badge with appropriate color."""
+    return rx.badge(
+        status.capitalize(),
+        color_scheme="green" if status == "active" else "red",
+        variant="subtle",
+        border_radius="full"
     )
 
-
-def _driver_modal() -> rx.Component:
-    return rx.radix.primitives.dialog.root(
-        rx.radix.primitives.dialog.portal(
-            rx.radix.primitives.dialog.overlay(
-                class_name="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+def driver_form() -> rx.Component:
+    """Render the driver form for adding/editing."""
+    return rx.form(
+        rx.vstack(
+            rx.hstack(
+                rx.input(
+                    placeholder="First Name",
+                    name="first_name",
+                    default_value=DriverState.current_driver.get("first_name", ""),
+                ),
+                rx.input(
+                    placeholder="Last Name",
+                    name="last_name",
+                    default_value=DriverState.current_driver.get("last_name", ""),
+                ),
             ),
-            rx.radix.primitives.dialog.content(
-                md_card(
-                    rx.el.form(
-                        rx.radix.primitives.dialog.title(
-                            rx.cond(
-                                DriverState.is_editing, "Edit Driver", "Add New Driver"
-                            ),
-                            class_name="text-xl font-bold text-gray-800 mb-4",
-                        ),
-                        rx.el.div(
-                            md_input(
-                                placeholder="Full Name",
-                                name="name",
-                                default_value=DriverState.driver_form_data.get(
-                                    "name", ""
-                                ),
-                                key=f"{DriverState.is_editing}-{DriverState.editing_driver_id}-name",
-                            ),
-                            rx.cond(
-                                DriverState.form_errors.contains("name"),
-                                rx.el.p(
-                                    DriverState.form_errors["name"],
-                                    class_name="text-red-500 text-sm mt-1",
-                                ),
-                                None,
-                            ),
-                            md_input(
-                                placeholder="Contact Number",
-                                name="contact_number",
-                                default_value=DriverState.driver_form_data.get(
-                                    "contact_number", ""
-                                ),
-                                key=f"{DriverState.is_editing}-{DriverState.editing_driver_id}-contact",
-                            ),
-                            rx.cond(
-                                DriverState.form_errors.contains("contact_number"),
-                                rx.el.p(
-                                    DriverState.form_errors["contact_number"],
-                                    class_name="text-red-500 text-sm mt-1",
-                                ),
-                                None,
-                            ),
-                            md_input(
-                                placeholder="License Number",
-                                name="license_number",
-                                default_value=DriverState.driver_form_data.get(
-                                    "license_number", ""
-                                ),
-                                key=f"{DriverState.is_editing}-{DriverState.editing_driver_id}-license",
-                            ),
-                            rx.cond(
-                                DriverState.form_errors.contains("license_number"),
-                                rx.el.p(
-                                    DriverState.form_errors["license_number"],
-                                    class_name="text-red-500 text-sm mt-1",
-                                ),
-                                None,
-                            ),
-                            md_input(
-                                placeholder="License Expiry",
-                                name="license_expiry",
-                                type="date",
-                                default_value=DriverState.driver_form_data.get(
-                                    "license_expiry", ""
-                                ),
-                                key=f"{DriverState.is_editing}-{DriverState.editing_driver_id}-expiry",
-                            ),
-                            rx.cond(
-                                DriverState.form_errors.contains("license_expiry"),
-                                rx.el.p(
-                                    DriverState.form_errors["license_expiry"],
-                                    class_name="text-red-500 text-sm mt-1",
-                                ),
-                                None,
-                            ),
-                            rx.el.select(
-                                rx.el.option("Active", value="Active"),
-                                rx.el.option("Inactive", value="Inactive"),
-                                name="status",
-                                default_value=DriverState.driver_form_data.get(
-                                    "status", "Active"
-                                ),
-                                class_name="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-shadow",
-                            ),
-                            class_name="flex flex-col gap-4",
-                        ),
-                        rx.el.div(
-                            rx.radix.primitives.dialog.close(
-                                rx.el.button(
-                                    "Cancel",
-                                    type="button",
-                                    on_click=DriverState.close_driver_modal,
-                                    class_name="bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-full hover:bg-gray-300 transition-colors",
-                                )
-                            ),
-                            md_button(
-                                rx.cond(
-                                    DriverState.is_editing, "Save Changes", "Add Driver"
-                                ),
-                                type="submit",
-                            ),
-                            class_name="flex justify-end gap-4 mt-6",
-                        ),
-                        on_submit=DriverState.handle_driver_submit,
-                        reset_on_submit=False,
+            rx.input(
+                placeholder="Email",
+                type_="email",
+                name="email",
+                default_value=DriverState.current_driver.get("email", ""),
+            ),
+            rx.input(
+                placeholder="Phone",
+                name="phone",
+                default_value=DriverState.current_driver.get("phone", ""),
+            ),
+            rx.input(
+                placeholder="License Number",
+                name="license_number",
+                default_value=DriverState.current_driver.get("license_number", ""),
+            ),
+            rx.input(
+                type_="date",
+                name="license_expiry",
+                default_value=DriverState.current_driver.get("license_expiry", ""),
+            ),
+            rx.select(
+                ["active", "inactive"],
+                placeholder="Status",
+                name="status",
+                default_value=DriverState.current_driver.get("status", "active"),
+            ),
+            rx.button(
+                "Save",
+                type_="submit",
+                width="100%",
+            ),
+            spacing="4",
+        ),
+        on_submit=DriverState.handle_driver_submit,
+    )
+
+def driver_modal() -> rx.Component:
+    """Modal for adding/editing drivers."""
+    return rx.modal(
+        rx.modal_overlay(
+            rx.modal_content(
+                rx.modal_header(
+                    rx.heading(
+                        "Edit Driver" if DriverState.is_edit_mode else "Add Driver"
                     )
                 ),
-                class_name="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 max-w-lg w-full",
-            ),
-        ),
-        open=DriverState.show_driver_modal,
-        on_open_change=DriverState.set_show_driver_modal,
-    )
-
-
-def _delete_confirm_dialog() -> rx.Component:
-    return rx.radix.primitives.dialog.root(
-        rx.radix.primitives.dialog.portal(
-            rx.radix.primitives.dialog.overlay(
-                class_name="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-            ),
-            rx.radix.primitives.dialog.content(
-                md_card(
-                    rx.radix.primitives.dialog.title(
-                        "Confirm Deletion",
-                        class_name="text-xl font-bold text-gray-800 mb-2",
-                    ),
-                    rx.radix.primitives.dialog.description(
-                        "Are you sure you want to delete this driver? This action cannot be undone.",
-                        class_name="text-gray-600 mb-6",
-                    ),
-                    rx.el.div(
-                        rx.radix.primitives.dialog.close(
-                            rx.el.button(
-                                "Cancel",
-                                on_click=DriverState.close_delete_confirm,
-                                class_name="bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-full hover:bg-gray-300 transition-colors",
-                            )
-                        ),
-                        rx.el.button(
-                            "Delete",
-                            on_click=DriverState.delete_driver,
-                            class_name="bg-red-600 text-white font-medium py-2 px-4 rounded-full hover:bg-red-700 transition-colors",
-                        ),
-                        class_name="flex justify-end gap-4",
-                    ),
-                ),
-                class_name="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50",
-            ),
-        ),
-        open=DriverState.show_delete_confirm,
-        on_open_change=DriverState.set_show_delete_confirm,
-    )
-
-
-def _drivers_table() -> rx.Component:
-    return md_card(
-        rx.el.div(
-            rx.el.h3("Manage Drivers", class_name="text-2xl font-bold text-gray-800"),
-            md_button(
-                rx.el.span(
-                    rx.icon("plus", class_name="mr-2"),
-                    "Add Driver",
-                    class_name="flex items-center",
-                ),
-                on_click=DriverState.open_add_modal,
-            ),
-            class_name="flex justify-between items-center mb-6",
-        ),
-        rx.el.div(
-            rx.el.table(
-                rx.el.thead(
-                    rx.el.tr(
-                        rx.el.th(
-                            "Name",
-                            class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                        ),
-                        rx.el.th(
-                            "Contact",
-                            class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                        ),
-                        rx.el.th(
-                            "License No.",
-                            class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                        ),
-                        rx.el.th(
-                            "License Expiry",
-                            class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                        ),
-                        rx.el.th(
-                            "Status",
-                            class_name="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider",
-                        ),
-                        rx.el.th(
-                            "Actions",
-                            class_name="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider",
-                        ),
-                        class_name="bg-gray-50",
+                rx.modal_body(driver_form()),
+                rx.modal_footer(
+                    rx.button(
+                        "Close",
+                        on_click=DriverState.close_modal,
                     )
                 ),
-                rx.el.tbody(
-                    rx.foreach(
-                        DriverState.drivers,
-                        lambda driver: rx.el.tr(
-                            rx.el.td(
-                                driver["name"],
-                                class_name="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900",
-                            ),
-                            rx.el.td(
-                                driver["contact_number"],
-                                class_name="px-6 py-4 whitespace-nowrap text-sm text-gray-500",
-                            ),
-                            rx.el.td(
-                                driver["license_number"],
-                                class_name="px-6 py-4 whitespace-nowrap text-sm text-gray-500",
-                            ),
-                            rx.el.td(
-                                driver["license_expiry"],
-                                class_name="px-6 py-4 whitespace-nowrap text-sm text-gray-500",
-                            ),
-                            rx.el.td(
-                                _status_badge(driver["status"]),
-                                class_name="px-6 py-4 whitespace-nowrap text-sm text-gray-500",
-                            ),
-                            rx.el.td(
-                                rx.el.div(
-                                    rx.el.button(
-                                        rx.icon("pencil", class_name="h-4 w-4"),
-                                        on_click=lambda: DriverState.open_edit_modal(
-                                            driver["id"]
-                                        ),
-                                        class_name="p-2 text-gray-500 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors",
-                                    ),
-                                    rx.el.button(
-                                        rx.icon("trash-2", class_name="h-4 w-4"),
-                                        on_click=lambda: DriverState.open_delete_confirm(
-                                            driver["id"]
-                                        ),
-                                        class_name="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-full transition-colors",
-                                    ),
-                                    class_name="flex items-center justify-end gap-2",
-                                ),
-                                class_name="px-6 py-4 whitespace-nowrap text-right text-sm font-medium",
-                            ),
-                            class_name="border-b border-gray-200",
-                        ),
-                    ),
-                    class_name="bg-white divide-y divide-gray-200",
-                ),
-                class_name="min-w-full divide-y divide-gray-200",
-            ),
-            class_name="overflow-x-auto border border-gray-200 rounded-lg",
+            )
         ),
-        _driver_modal(),
-        _delete_confirm_dialog(),
+        is_open=DriverState.show_modal,
     )
 
+def drivers_table() -> rx.Component:
+    """Render the drivers table."""
+    # Simple stacked list since Reflex doesn't provide table primitives
+    header = rx.hstack(
+        rx.text("Name", class_name="font-semibold w-1/4"),
+        rx.text("Email", class_name="font-semibold w-1/4"),
+        rx.text("Phone", class_name="font-semibold w-1/6"),
+        rx.text("License", class_name="font-semibold w-1/6"),
+        rx.text("Status", class_name="font-semibold w-1/12"),
+        rx.text("Actions", class_name="font-semibold w-1/12 text-right"),
+        class_name="px-4 py-2 border-b",
+    )
+
+    rows = rx.vstack(
+        *[
+            rx.hstack(
+                rx.text(f"{d.get('first_name','')} {d.get('last_name','')}", class_name="w-1/4"),
+                rx.text(d.get('email',''), class_name="w-1/4"),
+                rx.text(d.get('phone',''), class_name="w-1/6"),
+                rx.vstack(
+                    rx.text(d.get('license_number','')),
+                    rx.text(f"Expires: {d.get('license_expiry','')}", class_name="text-sm text-gray-600"),
+                    class_name="w-1/6",
+                ),
+                rx.text(d.get('status',''), class_name="w-1/12"),
+                rx.hstack(
+                    rx.button("Edit", size="sm", on_click=lambda _d=d: DriverState.open_edit_modal(_d.get('id'))),
+                    rx.button("Delete", size="sm", on_click=lambda _d=d: DriverState.open_delete_confirm(_d.get('id')), class_name="ml-2 bg-red-600 text-white"),
+                    class_name="w-1/12 justify-end",
+                ),
+                class_name="px-4 py-3 border-b items-center",
+            )
+            for d in DriverState.drivers
+        ],
+        spacing="0",
+    )
+
+    return rx.vstack(header, rows, class_name="w-full bg-white rounded shadow-sm")
 
 def drivers_page() -> rx.Component:
-    return require_login(
-        rx.el.div(
-            sidebar(),
-            rx.el.main(
-                _drivers_table(),
-                class_name="flex-1 p-6",
-                on_mount=DriverState.get_all_drivers,
+    """The main drivers management page."""
+    return rx.box(
+        sidebar(),
+        rx.box(
+            rx.hstack(
+                rx.heading("Drivers", size="3"),
+                rx.spacer(),
+                rx.button(
+                    "Add Driver",
+                    on_click=DriverState.open_add_modal,
+                ),
+                width="100%",
+                padding="4",
             ),
-            class_name="flex min-h-screen font-['Inter'] bg-gray-50",
-        )
+            rx.cond(
+                DriverState.error,
+                rx.box(
+                    DriverState.error,
+                    class_name="text-red-600 bg-red-50 border border-red-100 p-3 rounded mb-4",
+                ),
+            ),
+            rx.cond(
+                DriverState.success,
+                rx.box(
+                    DriverState.success,
+                    class_name="text-green-700 bg-green-50 border border-green-100 p-3 rounded mb-4",
+                ),
+            ),
+            drivers_table(),
+            driver_modal(),
+            padding="4",
+        ),
+        class_name="min-h-screen bg-gray-50",
     )

@@ -1,185 +1,184 @@
 import reflex as rx
 import requests
-import logging
-from typing import TypedDict, Optional
-from app.states.auth_state import AuthState, API_URL
-
-
-class Driver(TypedDict):
-    id: int
-    name: str
-    contact_number: str
-    license_number: str
-    license_expiry: str
-    status: str
+from typing import List, Dict, Optional
+from .auth_state import AuthState, API_BASE_URL
 
 
 class DriverState(AuthState):
-    """State for managing drivers via API."""
+    """State for managing drivers using simple dicts for serializability."""
 
-    drivers: list[Driver] = []
-    show_driver_modal: bool = False
-    is_editing: bool = False
-    editing_driver_id: Optional[int] = None
-    driver_form_data: dict[str, str] = {}
-    form_errors: dict[str, str] = {}
-    show_delete_confirm: bool = False
+    drivers: List[Dict] = []
+    current_driver: Dict = {}
+    show_modal: bool = False
+    is_edit_mode: bool = False
     deleting_driver_id: Optional[int] = None
 
     @rx.event
-    async def get_all_drivers(self):
-        """Fetches all drivers from the backend API."""
-        auth_state = await self.get_state(AuthState)
-        if not auth_state.is_authenticated:
+    def fetch_drivers(self):
+        """Fetch all drivers from the API."""
+        if not self.is_authenticated:
             return
         try:
-            response = requests.get(
-                f"{API_URL}/api/drivers", headers=auth_state.auth_headers
-            )
-            response.raise_for_status()
-            self.drivers = response.json()
-        except requests.exceptions.HTTPError as e:
-            logging.exception(f"HTTP Error fetching drivers: {e.response.text}")
-            if e.response.status_code == 401:
-                yield rx.toast("Session expired. Please log in again.", duration=3000)
-                yield AuthState.logout
+            resp = requests.get(f"{API_BASE_URL}/drivers", headers=self.auth_headers, timeout=5)
+            if resp.status_code == 200:
+                self.drivers = resp.json()
             else:
-                yield rx.toast("Failed to fetch drivers.", duration=3000)
+                self.show_error(f"Failed to fetch drivers: {resp.status_code}")
         except requests.exceptions.RequestException as e:
-            logging.exception(f"Request Error fetching drivers: {e}")
-            yield rx.toast(
-                "Failed to fetch drivers. Check server connection.", duration=3000
-            )
+            self.show_error(f"Error fetching drivers: {e}")
 
     @rx.event
     def open_add_modal(self):
-        """Opens the modal to add a new driver."""
-        self.is_editing = False
-        self.editing_driver_id = None
-        self.driver_form_data = {"status": "Active"}
-        self.form_errors = {}
-        self.show_driver_modal = True
+        self.current_driver = {
+            "first_name": "",
+            "last_name": "",
+            "email": "",
+            "phone": "",
+            "license_number": "",
+            "license_expiry": "",
+            "status": "active",
+        }
+        self.is_edit_mode = False
+        self.show_modal = True
 
     @rx.event
-    async def open_edit_modal(self, driver_id: int):
-        """Opens the modal to edit an existing driver."""
-        auth_state = await self.get_state(AuthState)
-        try:
-            response = requests.get(
-                f"{API_URL}/api/drivers/{driver_id}", headers=auth_state.auth_headers
-            )
-            response.raise_for_status()
-            driver = response.json()
-            self.is_editing = True
-            self.editing_driver_id = driver_id
-            self.driver_form_data = {
-                "name": driver["name"],
-                "contact_number": driver["contact_number"],
-                "license_number": driver["license_number"],
-                "license_expiry": driver["license_expiry"],
-                "status": driver["status"],
-            }
-            self.form_errors = {}
-            self.show_driver_modal = True
-        except requests.exceptions.HTTPError as e:
-            logging.exception(f"Error fetching driver details: {e.response.text}")
-            yield rx.toast("Failed to load driver details.", duration=3000)
-
-    @rx.event
-    def close_driver_modal(self):
-        """Closes the driver form modal."""
-        self.show_driver_modal = False
-        self.is_editing = False
-        self.editing_driver_id = None
-        self.driver_form_data = {}
-        self.form_errors = {}
-
-    def _validate_form(self, form_data: dict[str, str]) -> bool:
-        """Validates the driver form data."""
-        errors = {}
-        if not form_data.get("name"):
-            errors["name"] = "Name is required."
-        if not form_data.get("contact_number"):
-            errors["contact_number"] = "Contact number is required."
-        if not form_data.get("license_number"):
-            errors["license_number"] = "License number is required."
-        if not form_data.get("license_expiry"):
-            errors["license_expiry"] = "License expiry is required."
-        self.form_errors = errors
-        return not errors
-
-    @rx.event
-    async def handle_driver_submit(self, form_data: dict[str, str]):
-        """Handles the submission of the driver form to the backend."""
-        self.driver_form_data = form_data
-        if not self._validate_form(form_data):
+    def open_edit_modal(self, driver_id: int):
+        driver = next((d for d in self.drivers if d.get("id") == driver_id), None)
+        if not driver:
+            self.show_error("Driver not found")
             return
-        auth_state = await self.get_state(AuthState)
-        headers = auth_state.auth_headers
+        self.current_driver = dict(driver)
+        self.is_edit_mode = True
+        self.show_modal = True
+
+    @rx.event
+    def save_driver(self):
+        """Create or update a driver via API."""
+        if not self.current_driver:
+            self.show_error("No driver data to save")
+            return
         try:
-            if self.is_editing and self.editing_driver_id is not None:
-                response = requests.put(
-                    f"{API_URL}/api/drivers/{self.editing_driver_id}",
-                    headers=headers,
-                    json=form_data,
+            if self.is_edit_mode and self.current_driver.get("id"):
+                resp = requests.put(
+                    f"{API_BASE_URL}/drivers/{self.current_driver['id']}",
+                    json=self.current_driver,
+                    headers=self.auth_headers,
+                    timeout=5,
                 )
-                response.raise_for_status()
-                yield rx.toast("Driver updated successfully!", duration=3000)
             else:
-                response = requests.post(
-                    f"{API_URL}/api/drivers", headers=headers, json=form_data
+                resp = requests.post(
+                    f"{API_BASE_URL}/drivers",
+                    json=self.current_driver,
+                    headers=self.auth_headers,
+                    timeout=5,
                 )
-                response.raise_for_status()
-                yield rx.toast("Driver added successfully!", duration=3000)
-            yield DriverState.close_driver_modal
-            yield DriverState.get_all_drivers
-        except requests.exceptions.HTTPError as e:
-            logging.exception(f"Error submitting driver form: {e.response.text}")
-            if e.response.status_code == 401:
-                yield rx.toast("Session expired.", duration=3000)
-                yield AuthState.logout
-            elif e.response.status_code == 422:
-                yield rx.toast("Please correct the form errors.", duration=3000)
-                self.form_errors = e.response.json().get("errors", {})
+
+            if resp.status_code in (200, 201):
+                self.show_success("Driver saved")
+                self.fetch_drivers()
+                self.close_modal()
             else:
-                yield rx.toast("An error occurred. Please try again.", duration=3000)
+                self.show_error(f"Failed to save driver: {resp.status_code}")
         except requests.exceptions.RequestException as e:
-            logging.exception(f"Request Error: {e}")
-            yield rx.toast("Could not connect to server.", duration=3000)
+            self.show_error(f"Error saving driver: {e}")
+
+    @rx.event
+    def confirm_delete(self, driver_id: int):
+        self.deleting_driver_id = driver_id
+        # show confirm handled in component state
+
+    @rx.event
+    def delete_driver(self):
+        if not self.deleting_driver_id:
+            self.show_error("No driver selected to delete")
+            return
+        try:
+            resp = requests.delete(
+                f"{API_BASE_URL}/drivers/{self.deleting_driver_id}",
+                headers=self.auth_headers,
+                timeout=5,
+            )
+            if resp.status_code == 200:
+                self.show_success("Driver deleted")
+                self.fetch_drivers()
+            else:
+                self.show_error(f"Failed to delete driver: {resp.status_code}")
+        except requests.exceptions.RequestException as e:
+            self.show_error(f"Error deleting driver: {e}")
+        finally:
+            self.deleting_driver_id = None
+
+    @rx.event
+    def close_modal(self):
+        self.show_modal = False
+        self.current_driver = {}
+        self.is_edit_mode = False
+
+    @rx.event
+    def handle_driver_submit(self, form_data: Dict[str, str]):
+        """Handle form submission coming from the page form (form_data dict)."""
+        # Merge form data into current_driver (without changing id)
+        if not isinstance(form_data, dict):
+            self.show_error("Invalid form submission")
+            return
+
+        # If editing, keep the id from current_driver
+        if self.is_edit_mode and self.current_driver.get("id"):
+            form_payload = dict(form_data)
+            form_payload["id"] = self.current_driver.get("id")
+        else:
+            form_payload = dict(form_data)
+
+        try:
+            if self.is_edit_mode and form_payload.get("id"):
+                resp = requests.put(
+                    f"{API_BASE_URL}/drivers/{form_payload['id']}",
+                    json=form_payload,
+                    headers=self.auth_headers,
+                    timeout=5,
+                )
+            else:
+                resp = requests.post(
+                    f"{API_BASE_URL}/drivers",
+                    json=form_payload,
+                    headers=self.auth_headers,
+                    timeout=5,
+                )
+
+            if resp.status_code in (200, 201):
+                self.show_success("Driver saved")
+                self.fetch_drivers()
+                self.close_modal()
+            else:
+                self.show_error(f"Failed to save driver: {resp.status_code}")
+        except requests.exceptions.RequestException as e:
+            self.show_error(f"Error submitting form: {e}")
 
     @rx.event
     def open_delete_confirm(self, driver_id: int):
-        """Opens the delete confirmation dialog."""
         self.deleting_driver_id = driver_id
-        self.show_delete_confirm = True
 
     @rx.event
     def close_delete_confirm(self):
-        """Closes the delete confirmation dialog."""
         self.deleting_driver_id = None
-        self.show_delete_confirm = False
 
     @rx.event
-    async def delete_driver(self):
-        """Deletes a driver after confirmation via API."""
-        if self.deleting_driver_id is not None:
-            auth_state = await self.get_state(AuthState)
-            try:
-                response = requests.delete(
-                    f"{API_URL}/api/drivers/{self.deleting_driver_id}",
-                    headers=auth_state.auth_headers,
-                )
-                response.raise_for_status()
-                yield rx.toast("Driver deleted successfully!", duration=3000)
-                yield DriverState.get_all_drivers
-            except requests.exceptions.HTTPError as e:
-                logging.exception(f"Error deleting driver: {e.response.text}")
-                if e.response.status_code == 401:
-                    yield rx.toast("Session expired.", duration=3000)
-                    yield AuthState.logout
-                else:
-                    yield rx.toast("Failed to delete driver.", duration=3000)
-            except requests.exceptions.RequestException as e:
-                logging.exception(f"Request Error: {e}")
-                yield rx.toast("Could not connect to server.", duration=3000)
-        yield DriverState.close_delete_confirm
+    def delete_driver(self):
+        if not self.deleting_driver_id:
+            self.show_error("No driver selected to delete")
+            return
+        try:
+            resp = requests.delete(
+                f"{API_BASE_URL}/drivers/{self.deleting_driver_id}",
+                headers=self.auth_headers,
+                timeout=5,
+            )
+            if resp.status_code == 200:
+                self.show_success("Driver deleted")
+                self.fetch_drivers()
+            else:
+                self.show_error(f"Failed to delete driver: {resp.status_code}")
+        except requests.exceptions.RequestException as e:
+            self.show_error(f"Error deleting driver: {e}")
+        finally:
+            self.deleting_driver_id = None
