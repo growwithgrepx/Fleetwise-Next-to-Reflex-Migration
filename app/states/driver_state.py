@@ -115,7 +115,7 @@ class DriverState(AuthState):
                 )
             resp.raise_for_status()
             self.show_success("Driver saved successfully!")
-            yield self._fetch_drivers()
+            yield self._fetch_drivers
             self.close_modal()
         except requests.exceptions.RequestException as e:
             logging.exception(f"Error: {e}")
@@ -142,7 +142,7 @@ class DriverState(AuthState):
             resp = requests.delete(url, headers=auth_headers, timeout=5)
             resp.raise_for_status()
             self.show_success("Driver deleted successfully.")
-            yield self._fetch_drivers()
+            yield self._fetch_drivers
         except requests.exceptions.RequestException as e:
             logging.exception(f"Error: {e}")
             self.show_error(f"API Error: Failed to delete driver.")

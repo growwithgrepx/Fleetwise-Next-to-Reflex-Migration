@@ -28,7 +28,7 @@ def sidebar() -> rx.Component:
                 class_name="flex-1 p-4",
             ),
             rx.el.div(
-                md_button("Logout", on_click=AuthState.logout, width="100%"),
+                md_button("Logout", on_click=AuthState.logout, class_name="w-full"),
                 class_name="p-4 border-t",
             ),
             class_name="flex flex-col h-full",

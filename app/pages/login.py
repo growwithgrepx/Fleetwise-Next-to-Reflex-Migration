@@ -21,13 +21,13 @@ def login_page() -> rx.Component:
                         md_input(
                             placeholder="Email",
                             name="email",
-                            type_="email",
+                            type="email",
                             default_value="",
                         ),
                         md_input(
                             placeholder="Password",
                             name="password",
-                            type_="password",
+                            type="password",
                             default_value="",
                         ),
                         rx.cond(
@@ -37,14 +37,12 @@ def login_page() -> rx.Component:
                                 class_name="text-red-500 text-sm mt-2 text-center",
                             ),
                         ),
-                        md_button(
-                            "Login", type="submit", width="100%", class_name="mt-4"
-                        ),
+                        md_button("Login", type="submit", class_name="w-full mt-4"),
                         class_name="flex flex-col gap-4",
                     ),
                     on_submit=AuthState.login,
                 ),
-                max_width="400px",
+                class_name="max-w-md w-full",
             ),
             class_name="flex items-center justify-center min-h-screen bg-gray-50",
         ),

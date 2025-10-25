@@ -6,11 +6,13 @@ from app.components.sidebar import sidebar
 
 def status_badge(status: str) -> rx.Component:
     """Render a status badge with appropriate color."""
-    return rx.badge(
+    return rx.el.span(
         status.capitalize(),
-        color_scheme=rx.cond(status == "active", "green", "red"),
-        variant="soft",
-        radius="full",
+        class_name=rx.cond(
+            status == "active",
+            "px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-full",
+            "px-2 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-full",
+        ),
     )
 
 
@@ -36,7 +38,7 @@ def driver_form() -> rx.Component:
                 ),
                 md_input(
                     placeholder="Email",
-                    type_="email",
+                    type="email",
                     name="email",
                     default_value=DriverState.current_driver.email,
                     key=f"email-{DriverState.show_modal}",
@@ -53,21 +55,20 @@ def driver_form() -> rx.Component:
                     default_value=DriverState.current_driver.license_number,
                     key=f"lic_num-{DriverState.show_modal}",
                 ),
-                rx.el.input(
-                    type_="date",
+                md_input(
+                    type="date",
                     name="license_expiry",
                     default_value=DriverState.current_driver.license_expiry,
                     key=f"lic_exp-{DriverState.show_modal}",
-                    class_name="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-shadow",
                 ),
                 rx.el.select(
                     rx.el.option("active", value="active"),
                     rx.el.option("inactive", value="inactive"),
-                    placeholder="Status",
                     name="status",
                     default_value=DriverState.current_driver.status,
                     key=f"status-{DriverState.show_modal}",
                     class_name="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-shadow",
+                    placeholder="Status",
                 ),
                 class_name="flex flex-col gap-4",
             ),
@@ -87,70 +88,77 @@ def driver_form() -> rx.Component:
 
 def driver_modal() -> rx.Component:
     """Modal for adding/editing drivers."""
-    return rx.dialog.root(
-        rx.dialog.trigger(rx.fragment()),
-        rx.dialog.content(
-            rx.dialog.title(
-                rx.cond(DriverState.is_edit_mode, "Edit Driver", "Add Driver")
+    return rx.radix.primitives.dialog.root(
+        rx.radix.primitives.dialog.portal(
+            rx.radix.primitives.dialog.overlay(
+                class_name="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
             ),
-            rx.dialog.description(driver_form()),
-            rx.el.div(
-                rx.dialog.close(
+            rx.radix.primitives.dialog.content(
+                rx.radix.primitives.dialog.title(
+                    rx.cond(DriverState.is_edit_mode, "Edit Driver", "Add Driver"),
+                    class_name="text-xl font-semibold",
+                ),
+                rx.radix.primitives.dialog.description(driver_form()),
+                rx.el.div(
+                    rx.radix.primitives.dialog.close(
+                        md_button(
+                            "Cancel",
+                            on_click=DriverState.close_modal,
+                            class_name="bg-gray-200 text-gray-800 hover:bg-gray-300",
+                        )
+                    ),
                     md_button(
-                        "Cancel",
-                        on_click=DriverState.close_modal,
-                        bg="gray.200",
-                        color="gray.800",
-                        _hover={"bg": "gray.300"},
-                    )
+                        rx.cond(
+                            DriverState.is_edit_mode, "Save Changes", "Create Driver"
+                        ),
+                        type="submit",
+                        form="driver-form",
+                        is_loading=DriverState.is_saving,
+                    ),
+                    class_name="flex justify-end gap-3 pt-4",
                 ),
-                md_button(
-                    rx.cond(DriverState.is_edit_mode, "Save Changes", "Create Driver"),
-                    type="submit",
-                    form="driver-form",
-                    is_loading=DriverState.is_saving,
-                ),
-                class_name="flex justify-end gap-3 pt-4",
+                class_name="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl p-6 w-full max-w-md z-50 space-y-4",
             ),
-            class_name="space-y-4",
         ),
         open=DriverState.show_modal,
+        on_open_change=DriverState.close_modal,
     )
 
 
 def delete_confirmation_dialog() -> rx.Component:
     """Modal to confirm driver deletion."""
-    return rx.alert_dialog.root(
-        rx.alert_dialog.trigger(rx.fragment()),
-        rx.alert_dialog.content(
-            rx.alert_dialog.title("Confirm Deletion"),
-            rx.alert_dialog.description(
-                "Are you sure you want to delete this driver? This action cannot be undone."
+    return rx.radix.primitives.dialog.root(
+        rx.radix.primitives.dialog.portal(
+            rx.radix.primitives.dialog.overlay(
+                class_name="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
             ),
-            rx.flex(
-                rx.alert_dialog.cancel(
-                    md_button(
-                        "Cancel",
-                        on_click=DriverState.close_delete_confirm,
-                        bg="gray.200",
-                        color="gray.800",
-                        _hover={"bg": "gray.300"},
-                    )
+            rx.radix.primitives.dialog.content(
+                rx.radix.primitives.dialog.title(
+                    "Confirm Deletion", class_name="text-xl font-semibold"
                 ),
-                rx.alert_dialog.action(
+                rx.radix.primitives.dialog.description(
+                    "Are you sure you want to delete this driver? This action cannot be undone.",
+                    class_name="text-gray-600",
+                ),
+                rx.el.div(
+                    rx.radix.primitives.dialog.close(
+                        md_button(
+                            "Cancel",
+                            class_name="bg-gray-200 text-gray-800 hover:bg-gray-300",
+                        )
+                    ),
                     md_button(
                         "Delete",
                         on_click=DriverState.delete_driver,
-                        bg="red.500",
-                        _hover={"bg": "red.600"},
-                    )
+                        class_name="bg-red-500 hover:bg-red-600",
+                    ),
+                    class_name="flex justify-end gap-3 mt-4",
                 ),
-                spacing="3",
-                margin_top="4",
-                justify="end",
+                class_name="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl shadow-2xl p-6 w-full max-w-md z-50 space-y-4",
             ),
         ),
         open=DriverState.deleting_driver_id != 0,
+        on_open_change=DriverState.close_delete_confirm,
     )
 
 
@@ -185,18 +193,12 @@ def drivers_table() -> rx.Component:
                     md_button(
                         "Edit",
                         on_click=lambda: DriverState.open_edit_modal(d.id),
-                        size="1",
-                        bg="gray.200",
-                        color="gray.800",
-                        _hover={"bg": "gray.300"},
+                        class_name="text-xs px-2 py-1 bg-gray-200 text-gray-800 hover:bg-gray-300",
                     ),
                     md_button(
                         "Delete",
                         on_click=lambda: DriverState.open_delete_confirm(d.id),
-                        size="1",
-                        bg="red.100",
-                        color="red.700",
-                        _hover={"bg": "red.200"},
+                        class_name="text-xs px-2 py-1 bg-red-100 text-red-700 hover:bg-red-200",
                     ),
                     class_name="w-1/12 flex justify-end gap-2",
                 ),
