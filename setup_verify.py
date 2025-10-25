@@ -125,21 +125,21 @@ def test_python_version():
 
 def test_dependencies():
     """Check if required packages are installed"""
-    required = [
-        "flask",
-        "reflex",
-        "requests",
-        "flask_cors",
-        "flask_sqlalchemy",
-        "pyjwt",
-    ]
+    required = {
+        "flask": "flask",
+        "reflex": "reflex",
+        "requests": "requests",
+        "flask_cors": "flask_cors",
+        "flask_sqlalchemy": "flask_sqlalchemy",
+        "pyjwt": "jwt",
+    }
     all_installed = True
-    for package in required:
+    for package_name, import_name in required.items():
         try:
-            __import__(package.replace("-", "_"))
-            print(f"  ✓ {package}")
+            __import__(import_name)
+            print(f"  ✓ {package_name}")
         except ImportError:
-            print(f"  ✗ {package} (not installed)")
+            print(f"  ✗ {package_name} (not installed)")
             all_installed = False
     return all_installed
 

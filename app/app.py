@@ -4,33 +4,29 @@ from app.states.driver_state import DriverState
 from app.pages.login import login_page
 from app.pages.drivers import drivers_page
 from app.components.sidebar import sidebar
+from app.components.ui import heading_1, body_text
+from app.styles import LAYOUT, COLORS
 
 
 def require_login(page: rx.Component) -> rx.Component:
-    """A decorator to require login for a page."""
+    """Require login for a page."""
     return rx.cond(AuthState.is_authenticated, page, login_page())
 
 
 def index() -> rx.Component:
-    """The main dashboard page."""
+    """Responsive dashboard page."""
     return require_login(
-        rx.box(
+        rx.el.div(
             sidebar(),
-            rx.box(
-                rx.vstack(
-                    rx.heading("Welcome to Fleetwise", size="6"),
-                    rx.text(
-                        "Select an option from the sidebar to get started.",
-                        color="gray",
-                        size="3",
-                    ),
-                    align="start",
-                    spacing="4",
+            rx.el.div(
+                rx.el.div(
+                    rx.el.h1("Welcome to Fleetwise", class_name=f"text-4xl font-bold text-{COLORS['text_primary']} mb-4"),
+                    rx.el.p("Select an option from the sidebar to get started.", class_name=f"text-lg text-{COLORS['text_secondary']}"),
                 ),
-                padding="6",
-                flex="1",
+                class_name=f"flex-1 p-8 bg-{COLORS['primary_main']}",
+                style={"minHeight": "100vh"},
             ),
-            class_name="flex min-h-screen bg-gray-50",
+            class_name=f"flex min-h-screen bg-{COLORS['primary_main']}",
         )
     )
 
@@ -41,8 +37,11 @@ def protected_drivers_page() -> rx.Component:
 
 
 app = rx.App(
-    theme=rx.theme(appearance="light", accent_color="teal", has_background=True),
-    style={"font_family": "Inter, sans-serif"},
+    theme=rx.theme(appearance="dark", accent_color="blue", has_background=False),
+    style={
+        "font_family": "Inter, sans-serif",
+        "background_color": COLORS["primary_main"],
+    },
     stylesheets=[
         "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
     ],

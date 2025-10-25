@@ -3,7 +3,7 @@ from typing import Optional
 import logging
 
 API_HOST = "127.0.0.1"
-API_PORT = 8000
+API_PORT = 8000  # Python backend port (not Reflex backend)
 API_BASE_URL = f"http://{API_HOST}:{API_PORT}/api"
 
 

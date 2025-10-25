@@ -1,7 +1,14 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from .config import Config
-from .models import db, User, Driver
+import sys
+import os
+from pathlib import Path
+
+# Add parent directory to path for relative imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+from config import Config
+from models import db, User, Driver
 import jwt
 from datetime import datetime, timedelta
 from functools import wraps

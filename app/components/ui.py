@@ -1,38 +1,80 @@
 import reflex as rx
+from app.styles import COMPONENTS, TEXT
 
 
 def md_button(*children, **props) -> rx.Component:
-    """A Material Design 3 inspired button."""
-    class_name = " ".join(
-        [
-            "bg-teal-600 text-white font-medium px-4 py-2 rounded-full",
-            "hover:bg-teal-700 focus:ring-2 focus:ring-teal-500",
-            "transition-all shadow-sm hover:shadow-md",
-            props.pop("class_name", ""),
-        ]
-    )
+    """Primary button with theme."""
+    variant = props.pop("variant", "primary")
+    style_map = {
+        "primary": COMPONENTS["button_primary"],
+        "secondary": COMPONENTS["button_secondary"],
+        "danger": COMPONENTS["button_danger"],
+    }
+    class_name = " ".join([style_map.get(variant, COMPONENTS["button_primary"]), props.pop("class_name", "")])
     return rx.el.button(*children, class_name=class_name, **props)
 
 
 def md_input(**props) -> rx.Component:
-    """A Material Design 3 inspired input field."""
-    class_name = " ".join(
-        [
-            "w-full px-4 py-2 border border-gray-300 rounded-lg",
-            "focus:ring-2 focus:ring-teal-500 focus:border-transparent",
-            "transition-shadow",
-            props.pop("class_name", ""),
-        ]
-    )
+    """Input field with theme."""
+    class_name = " ".join([COMPONENTS["input"], props.pop("class_name", "")])
     return rx.el.input(class_name=class_name, **props)
 
 
 def md_card(*children, **props) -> rx.Component:
-    """A Material Design 3 inspired card."""
-    class_name = " ".join(
-        [
-            "bg-white rounded-xl shadow-sm p-6 border border-gray-100",
-            props.pop("class_name", ""),
-        ]
-    )
+    """Card component with theme."""
+    class_name = " ".join([COMPONENTS["card"], props.pop("class_name", "")])
+    return rx.el.div(*children, class_name=class_name, **props)
+
+
+def heading_1(*children, **props) -> rx.Component:
+    """Large heading."""
+    class_name = " ".join([TEXT["heading_1"], props.pop("class_name", "")])
+    return rx.el.h1(*children, class_name=class_name, **props)
+
+
+def heading_2(*children, **props) -> rx.Component:
+    """Medium heading."""
+    class_name = " ".join([TEXT["heading_2"], props.pop("class_name", "")])
+    return rx.el.h2(*children, class_name=class_name, **props)
+
+
+def heading_3(*children, **props) -> rx.Component:
+    """Small heading."""
+    class_name = " ".join([TEXT["heading_3"], props.pop("class_name", "")])
+    return rx.el.h3(*children, class_name=class_name, **props)
+
+
+def body_text(*children, **props) -> rx.Component:
+    """Body text."""
+    class_name = " ".join([TEXT["body"], props.pop("class_name", "")])
+    return rx.el.p(*children, class_name=class_name, **props)
+
+
+def label_text(*children, **props) -> rx.Component:
+    """Label text."""
+    class_name = " ".join([TEXT["label"], props.pop("class_name", "")])
+    return rx.el.label(*children, class_name=class_name, **props)
+
+
+def badge_success(*children, **props) -> rx.Component:
+    """Success badge."""
+    class_name = " ".join([COMPONENTS["badge_success"], props.pop("class_name", "")])
+    return rx.el.span(*children, class_name=class_name, **props)
+
+
+def badge_error(*children, **props) -> rx.Component:
+    """Error badge."""
+    class_name = " ".join([COMPONENTS["badge_error"], props.pop("class_name", "")])
+    return rx.el.span(*children, class_name=class_name, **props)
+
+
+def alert_error(*children, **props) -> rx.Component:
+    """Error alert."""
+    class_name = " ".join([COMPONENTS["alert_error"], props.pop("class_name", "")])
+    return rx.el.div(*children, class_name=class_name, **props)
+
+
+def alert_success(*children, **props) -> rx.Component:
+    """Success alert."""
+    class_name = " ".join([COMPONENTS["alert_success"], props.pop("class_name", "")])
     return rx.el.div(*children, class_name=class_name, **props)

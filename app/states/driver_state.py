@@ -2,11 +2,12 @@ import reflex as rx
 import requests
 from typing import Optional
 import logging
-from .auth_state import AuthState, API_BASE_URL
-from reflex import Base
+from .auth_state import AuthState
+from .base_state import API_BASE_URL
+from pydantic import BaseModel
 
 
-class Driver(Base):
+class Driver(BaseModel):
     id: int | None = None
     first_name: str = ""
     last_name: str = ""
@@ -33,7 +34,7 @@ class DriverState(AuthState):
         """Event handler for page load. Ensures user is authenticated before fetching."""
         if not self.is_authenticated:
             return rx.redirect("/login")
-        return self._fetch_drivers
+        await self._fetch_drivers()
 
     async def _fetch_drivers(self):
         """Internal method to fetch all drivers from the API."""
@@ -115,7 +116,7 @@ class DriverState(AuthState):
                 )
             resp.raise_for_status()
             self.show_success("Driver saved successfully!")
-            yield self._fetch_drivers
+            await self._fetch_drivers()
             self.close_modal()
         except requests.exceptions.RequestException as e:
             logging.exception(f"Error: {e}")
@@ -124,12 +125,12 @@ class DriverState(AuthState):
             self.is_saving = False
 
     @rx.event
-    def save_driver_from_modal(self):
+    async def save_driver_from_modal(self):
         """Event handler to save the driver from the modal form."""
-        return self._save_driver
+        await self._save_driver()
 
     @rx.event
-    def delete_driver(self):
+    async def delete_driver(self):
         """Delete a driver after confirmation."""
         if self.deleting_driver_id == 0:
             self.show_error("No driver selected for deletion.")
@@ -137,12 +138,12 @@ class DriverState(AuthState):
         self.is_loading = True
         self.clear_messages()
         try:
-            auth_headers = self.auth_headers
+            auth_headers = await self.get_var_value(self.auth_headers)
             url = f"{API_BASE_URL}/drivers/{self.deleting_driver_id}"
             resp = requests.delete(url, headers=auth_headers, timeout=5)
             resp.raise_for_status()
             self.show_success("Driver deleted successfully.")
-            yield self._fetch_drivers
+            await self._fetch_drivers()
         except requests.exceptions.RequestException as e:
             logging.exception(f"Error: {e}")
             self.show_error(f"API Error: Failed to delete driver.")
@@ -160,19 +161,19 @@ class DriverState(AuthState):
         self.form_errors = []
 
     @rx.event
-    def handle_driver_submit(self, form_data: dict[str, str]):
+    async def handle_driver_submit(self, form_data: dict):
         """Handle form submission from the modal."""
         if not isinstance(form_data, dict):
             self.show_error("Invalid form submission")
             return
-        self.current_driver.first_name = form_data.get("first_name", "")
-        self.current_driver.last_name = form_data.get("last_name", "")
-        self.current_driver.email = form_data.get("email", "")
-        self.current_driver.phone = form_data.get("phone", "")
-        self.current_driver.license_number = form_data.get("license_number", "")
-        self.current_driver.license_expiry = form_data.get("license_expiry", "")
-        self.current_driver.status = form_data.get("status", "active")
-        return self._save_driver
+        self.current_driver.first_name = str(form_data.get("first_name", ""))
+        self.current_driver.last_name = str(form_data.get("last_name", ""))
+        self.current_driver.email = str(form_data.get("email", ""))
+        self.current_driver.phone = str(form_data.get("phone", ""))
+        self.current_driver.license_number = str(form_data.get("license_number", ""))
+        self.current_driver.license_expiry = str(form_data.get("license_expiry", ""))
+        self.current_driver.status = str(form_data.get("status", "active"))
+        await self._save_driver()
 
     @rx.event
     def open_delete_confirm(self, driver_id: int):
