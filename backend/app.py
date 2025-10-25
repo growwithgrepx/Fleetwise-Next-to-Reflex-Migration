@@ -1,3 +1,4 @@
+# FILE: backend/app.py
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from .config import Config
@@ -9,7 +10,7 @@ from werkzeug.security import generate_password_hash
 
 app = Flask(__name__)
 app.config.from_object(Config)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 db.init_app(app)
 
 def token_required(f):
@@ -171,4 +172,4 @@ def init_db():
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, port=5000)
+    app.run(host='0.0.0.0', debug=True, port=8000)

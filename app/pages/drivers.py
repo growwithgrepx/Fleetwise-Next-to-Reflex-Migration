@@ -1,3 +1,4 @@
+# FILE: app/pages/drivers.py
 import reflex as rx
 from app.states.driver_state import DriverState
 from app.components.ui import md_button, md_input, md_card
@@ -20,40 +21,40 @@ def driver_form() -> rx.Component:
                 rx.input(
                     placeholder="First Name",
                     name="first_name",
-                    default_value=DriverState.current_driver.get("first_name", ""),
+                    default_value=DriverState.current_driver.first_name,
                 ),
                 rx.input(
                     placeholder="Last Name",
                     name="last_name",
-                    default_value=DriverState.current_driver.get("last_name", ""),
+                    default_value=DriverState.current_driver.last_name,
                 ),
             ),
             rx.input(
                 placeholder="Email",
                 type_="email",
                 name="email",
-                default_value=DriverState.current_driver.get("email", ""),
+                default_value=DriverState.current_driver.email,
             ),
             rx.input(
                 placeholder="Phone",
                 name="phone",
-                default_value=DriverState.current_driver.get("phone", ""),
+                default_value=DriverState.current_driver.phone,
             ),
             rx.input(
                 placeholder="License Number",
                 name="license_number",
-                default_value=DriverState.current_driver.get("license_number", ""),
+                default_value=DriverState.current_driver.license_number,
             ),
             rx.input(
                 type_="date",
                 name="license_expiry",
-                default_value=DriverState.current_driver.get("license_expiry", ""),
+                default_value=DriverState.current_driver.license_expiry,
             ),
             rx.select(
                 ["active", "inactive"],
                 placeholder="Status",
                 name="status",
-                default_value=DriverState.current_driver.get("status", "active"),
+                default_value=DriverState.current_driver.status,
             ),
             rx.button(
                 "Save",
@@ -67,29 +68,26 @@ def driver_form() -> rx.Component:
 
 def driver_modal() -> rx.Component:
     """Modal for adding/editing drivers."""
-    return rx.modal(
-        rx.modal_overlay(
-            rx.modal_content(
-                rx.modal_header(
-                    rx.heading(
-                        "Edit Driver" if DriverState.is_edit_mode else "Add Driver"
-                    )
-                ),
-                rx.modal_body(driver_form()),
-                rx.modal_footer(
-                    rx.button(
-                        "Close",
-                        on_click=DriverState.close_modal,
-                    )
-                ),
-            )
+    return rx.dialog.root(
+        rx.dialog.trigger(rx.fragment()),
+        rx.dialog.content(
+            rx.dialog.title(
+                rx.cond(
+                    DriverState.is_edit_mode,
+                    "Edit Driver",
+                    "Add Driver"
+                )
+            ),
+            rx.dialog.description(driver_form()),
+            rx.dialog.close(
+                rx.button("Close", on_click=DriverState.close_modal)
+            ),
         ),
-        is_open=DriverState.show_modal,
+        open=DriverState.show_modal,
     )
 
 def drivers_table() -> rx.Component:
     """Render the drivers table."""
-    # Simple stacked list since Reflex doesn't provide table primitives
     header = rx.hstack(
         rx.text("Name", class_name="font-semibold w-1/4"),
         rx.text("Email", class_name="font-semibold w-1/4"),
@@ -100,24 +98,31 @@ def drivers_table() -> rx.Component:
         class_name="px-4 py-2 border-b",
     )
 
-    # Use rx.foreach to iterate over the Var list `DriverState.drivers`.
-    # Each `d` here is a Var representing the driver dict; access fields via .get or indexing.
     rows = rx.vstack(
         rx.foreach(
             DriverState.drivers,
             lambda d: rx.hstack(
-                rx.text(f"{d.get('first_name','')} {d.get('last_name','')}", class_name="w-1/4"),
-                rx.text(d.get('email',''), class_name="w-1/4"),
-                rx.text(d.get('phone',''), class_name="w-1/6"),
+                rx.text(f"{d.first_name} {d.last_name}", class_name="w-1/4"),
+                rx.text(d.email, class_name="w-1/4"),
+                rx.text(d.phone, class_name="w-1/6"),
                 rx.vstack(
-                    rx.text(d.get('license_number','')),
-                    rx.text(f"Expires: {d.get('license_expiry','')}", class_name="text-sm text-gray-600"),
+                    rx.text(d.license_number),
+                    rx.text(f"Expires: {d.license_expiry}", class_name="text-sm text-gray-600"),
                     class_name="w-1/6",
                 ),
-                rx.text(d.get('status',''), class_name="w-1/12"),
+                rx.text(d.status, class_name="w-1/12"),
                 rx.hstack(
-                    rx.button("Edit", size="sm", on_click=lambda _=None, _id=d.get('id'): DriverState.open_edit_modal(_id)),
-                    rx.button("Delete", size="sm", on_click=lambda _=None, _id=d.get('id'): DriverState.open_delete_confirm(_id), class_name="ml-2 bg-red-600 text-white"),
+                    rx.button(
+                        "Edit",
+                        size="2",
+                        on_click=lambda _id=d.id: DriverState.open_edit_modal(_id)
+                    ),
+                    rx.button(
+                        "Delete",
+                        size="2",
+                        on_click=lambda _id=d.id: DriverState.open_delete_confirm(_id),
+                        class_name="ml-2 bg-red-600 text-white"
+                    ),
                     class_name="w-1/12 justify-end",
                 ),
                 class_name="px-4 py-3 border-b items-center",

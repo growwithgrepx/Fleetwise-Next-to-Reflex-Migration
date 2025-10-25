@@ -1,7 +1,8 @@
+# FILE: app/states/base_state.py
 import reflex as rx
 from typing import Optional
 
-API_BASE_URL = "http://127.0.0.1:8000/api"
+API_BASE_URL = "http://localhost:8000/api"
 
 class BaseState(rx.State):
     """The base state for the app. All other states should inherit from this state."""
