@@ -1,134 +1,217 @@
 #!/bin/bash
+###############################################################################
+# Fleetwise - Production-Grade Startup Script (Unix/Linux/macOS)
+###############################################################################
+# Description: Gracefully cleans ports, starts services with proper ordering
+# Author: DevOps Team
+# Last Modified: 2025-10-25
+###############################################################################
 
-# Fleetwise Startup Script
-# This script starts both the Flask backend and Reflex frontend
-
-set -e  # Exit on error
-
-echo "========================================"
-echo "  Starting Fleetwise Application"
-echo "========================================"
-echo ""
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Check if Python is available
-if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}Error: Python 3 is not installed${NC}"
-    exit 1
-fi
+# Create logs directory
+mkdir -p logs
 
-# Check if required files exist
-if [ ! -f "backend/app.py" ]; then
-    echo -e "${RED}Error: backend/app.py not found${NC}"
-    echo "Please run this script from the project root directory"
-    exit 1
-fi
+# Set log file with timestamp
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+LOGFILE="logs/start_${TIMESTAMP}.log"
 
-if [ ! -f "app/app.py" ]; then
-    echo -e "${RED}Error: app/app.py not found${NC}"
-    echo "Please run this script from the project root directory"
-    exit 1
-fi
-
-# Function to cleanup background processes on exit
-cleanup() {
-    echo -e "\n${YELLOW}Shutting down servers...${NC}"
-    if [ ! -z "$BACKEND_PID" ]; then
-        kill $BACKEND_PID 2>/dev/null || true
-        echo "  ✓ Backend stopped"
-    fi
-    if [ ! -z "$FRONTEND_PID" ]; then
-        kill $FRONTEND_PID 2>/dev/null || true
-        echo "  ✓ Frontend stopped"
-    fi
-    echo -e "${GREEN}Cleanup complete${NC}"
-    exit 0
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"
 }
 
-# Register cleanup function to run on script exit
-trap cleanup EXIT INT TERM
+log "========================================"
+log "Starting Fleetwise Application"
+log "========================================"
 
-# Check if backend is already running
-if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo -e "${YELLOW}Warning: Port 8000 is already in use${NC}"
-    echo "Another Flask backend may be running. Press Ctrl+C to exit or wait to continue..."
-    sleep 3
+echo ""
+echo "========================================"
+echo "  Fleetwise Application Startup"
+echo "========================================"
+echo ""
+echo -e "${BLUE}[INFO]${NC} Initializing startup sequence..."
+echo -e "${BLUE}[INFO]${NC} Log file: $LOGFILE"
+echo ""
+
+# Step 1: Verify Prerequisites
+echo -e "${BLUE}[1/6]${NC} Verifying prerequisites..."
+log "Checking prerequisites"
+
+if ! command -v python3 &> /dev/null; then
+    echo -e "${RED}[ERROR]${NC} Python 3 is not installed"
+    log "ERROR: Python 3 not found"
+    exit 1
 fi
+echo -e "${GREEN}[OK]${NC} Python 3 installed"
 
-# Check if frontend is already running
-if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo -e "${YELLOW}Warning: Port 3000 is already in use${NC}"
-    echo "Another Reflex frontend may be running. Press Ctrl+C to exit or wait to continue..."
-    sleep 3
+if ! command -v reflex &> /dev/null; then
+    echo -e "${RED}[ERROR]${NC} Reflex is not installed"
+    log "ERROR: Reflex not found"
+    exit 1
 fi
+echo -e "${GREEN}[OK]${NC} Reflex installed"
 
-# Start Flask backend
-echo "Starting Flask backend on port 8000..."
-python3 -m backend.app > backend.log 2>&1 &
+# Step 2: Clean Orphaned Processes
+echo ""
+echo -e "${BLUE}[2/6]${NC} Cleaning orphaned processes on ports 3000, 8000, 8001..."
+log "Cleaning ports"
+
+for PORT in 3000 8000 8001; do
+    echo "  Checking port $PORT..."
+    if command -v lsof &> /dev/null; then
+        # macOS/Linux with lsof
+        PIDS=$(lsof -ti:$PORT 2>/dev/null || true)
+    elif command -v fuser &> /dev/null; then
+        # Linux with fuser
+        PIDS=$(fuser $PORT/tcp 2>/dev/null | tr -s ' ' '\n' || true)
+    else
+        echo -e "${YELLOW}[WARNING]${NC} Cannot check port $PORT (lsof/fuser not available)"
+        continue
+    fi
+    
+    if [ -n "$PIDS" ]; then
+        for PID in $PIDS; do
+            if [ -n "$PID" ] && [ "$PID" != "" ]; then
+                echo "    Killing process $PID on port $PORT"
+                log "Killing PID $PID on port $PORT"
+                kill -9 $PID 2>/dev/null || true
+            fi
+        done
+    fi
+done
+echo -e "${GREEN}[OK]${NC} Ports cleaned"
+
+# Step 3: Verify Port Availability
+echo ""
+echo -e "${BLUE}[3/6]${NC} Verifying port availability..."
+log "Verifying ports"
+
+sleep 2
+
+for PORT in 3000 8000 8001; do
+    if command -v lsof &> /dev/null; then
+        if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+            echo -e "${RED}[ERROR]${NC} Port $PORT still in use!"
+            log "ERROR: Port $PORT still in use"
+            exit 1
+        fi
+    fi
+done
+echo -e "${GREEN}[OK]${NC} All ports available"
+
+# Step 4: Start Flask Backend
+echo ""
+echo -e "${BLUE}[4/6]${NC} Starting Flask backend (port 8000)..."
+log "Starting Flask backend"
+
+python3 backend/app.py > "logs/backend_${TIMESTAMP}.log" 2>&1 &
 BACKEND_PID=$!
+echo $BACKEND_PID > "logs/backend.pid"
 
-# Wait for backend to start
-echo "Waiting for backend to initialize..."
-sleep 3
+echo "  Waiting for backend initialization..."
+sleep 5
 
-# Check if backend is running
+# Verify backend is running
 if ! kill -0 $BACKEND_PID 2>/dev/null; then
-    echo -e "${RED}Error: Backend failed to start${NC}"
-    echo "Check backend.log for details:"
-    tail -20 backend.log
+    echo -e "${RED}[ERROR]${NC} Backend process died"
+    log "ERROR: Backend process died"
+    echo "Check logs/backend_${TIMESTAMP}.log for details"
     exit 1
 fi
 
-# Test backend health
-if curl -s http://127.0.0.1:8000/health > /dev/null; then
-    echo -e "${GREEN}✓ Backend is running on http://127.0.0.1:8000${NC}"
-else
-    echo -e "${RED}Error: Backend is not responding${NC}"
-    exit 1
+# Check if port 8000 is listening
+if command -v lsof &> /dev/null; then
+    if ! lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null 2>&1; then
+        echo -e "${RED}[ERROR]${NC} Backend not listening on port 8000"
+        log "ERROR: Backend startup failed"
+        echo "Check logs/backend_${TIMESTAMP}.log for details"
+        exit 1
+    fi
 fi
 
-# Start Reflex frontend
+echo -e "${GREEN}[OK]${NC} Backend running on http://127.0.0.1:8000"
+log "Backend started successfully (PID: $BACKEND_PID)"
+
+# Step 5: Start Reflex Frontend
 echo ""
-echo "Starting Reflex frontend on port 3000..."
-reflex run > frontend.log 2>&1 &
+echo -e "${BLUE}[5/6]${NC} Starting Reflex frontend (ports 3000, 8001)..."
+log "Starting Reflex frontend"
+
+reflex run > "logs/reflex_${TIMESTAMP}.log" 2>&1 &
 FRONTEND_PID=$!
+echo $FRONTEND_PID > "logs/reflex.pid"
 
-# Wait for frontend to start
-echo "Waiting for frontend to compile..."
-sleep 10
+echo "  Waiting for frontend compilation..."
+sleep 15
 
-# Check if frontend is running
+# Verify frontend is running
 if ! kill -0 $FRONTEND_PID 2>/dev/null; then
-    echo -e "${RED}Error: Frontend failed to start${NC}"
-    echo "Check frontend.log for details:"
-    tail -20 frontend.log
+    echo -e "${RED}[ERROR]${NC} Frontend process died"
+    log "ERROR: Frontend process died"
+    echo "Check logs/reflex_${TIMESTAMP}.log for details"
     exit 1
 fi
 
-echo -e "${GREEN}✓ Frontend is starting...${NC}"
+# Check if port 3000 is listening
+if command -v lsof &> /dev/null; then
+    if ! lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null 2>&1; then
+        echo -e "${RED}[ERROR]${NC} Frontend not listening on port 3000"
+        log "ERROR: Frontend startup failed"
+        echo "Check logs/reflex_${TIMESTAMP}.log for details"
+        exit 1
+    fi
+    
+    if ! lsof -Pi :8001 -sTCP:LISTEN -t >/dev/null 2>&1; then
+        echo -e "${YELLOW}[WARNING]${NC} Reflex backend (port 8001) not detected"
+        log "WARNING: Port 8001 not listening"
+    fi
+fi
+
+echo -e "${GREEN}[OK]${NC} Frontend running on http://localhost:3000"
+echo -e "${GREEN}[OK]${NC} Reflex backend running on http://127.0.0.1:8001"
+log "Frontend started successfully (PID: $FRONTEND_PID)"
+
+# Step 6: Final Status
+echo ""
+echo -e "${BLUE}[6/6]${NC} Startup complete!"
+log "========================================"
+log "Startup completed successfully"
+log "========================================"
+
 echo ""
 echo "========================================"
-echo -e "  ${GREEN}✓ Fleetwise is running!${NC}"
+echo -e "  ${GREEN}Fleetwise is READY!${NC}"
 echo "========================================"
 echo ""
-echo "  Backend:  http://127.0.0.1:8000"
-echo "  Frontend: http://localhost:3000"
+echo "  Services:"
+echo -e "    ${GREEN}[*]${NC} Backend API:     http://127.0.0.1:8000"
+echo -e "    ${GREEN}[*]${NC} Reflex Backend:  http://127.0.0.1:8001"
+echo -e "    ${GREEN}[*]${NC} Frontend UI:     http://localhost:3000"
 echo ""
-echo "  Login credentials:"
+echo "  Login:"
 echo "    Email:    admin@fleetwise.com"
 echo "    Password: admin123"
 echo ""
-echo "  Press Ctrl+C to stop all servers"
+echo "  Management:"
+echo "    ./stop.sh    - Stop all services"
+echo "    ./restart.sh - Restart services"
 echo ""
-echo "  Logs are being written to:"
-echo "    - backend.log"
-echo "    - frontend.log"
+echo "  Logs:"
+echo "    $LOGFILE"
+echo "    logs/backend_${TIMESTAMP}.log"
+echo "    logs/reflex_${TIMESTAMP}.log"
 echo ""
-
-# Keep script running and show logs
-tail -f backend.log frontend.log
+echo "  PIDs saved to:"
+echo "    logs/backend.pid ($BACKEND_PID)"
+echo "    logs/reflex.pid ($FRONTEND_PID)"
+echo ""
+echo -e "${BLUE}[INFO]${NC} Services running in background"
+echo -e "${BLUE}[INFO]${NC} Run ./stop.sh to terminate all services"
+echo ""
