@@ -13,6 +13,7 @@ import jwt
 from datetime import datetime, timedelta
 from functools import wraps
 from werkzeug.security import generate_password_hash
+import logging
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -27,14 +28,36 @@ def token_required(f):
         if not token:
             return (jsonify({"message": "Token is missing!"}), 401)
         try:
-            token = token.split(" ")[1]
+            # Extract token from "Bearer <token>" format
+            parts = token.split(" ")
+            if len(parts) != 2 or parts[0] != "Bearer":
+                return (jsonify({"message": "Invalid Authorization header format!"}), 401)
+            token = parts[1]
             data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
             current_user = User.query.filter_by(id=data["user_id"]).first()
-        except:
+            if not current_user:
+                return (jsonify({"message": "User not found!"}), 401)
+        except jwt.ExpiredSignatureError:
+            return (jsonify({"message": "Token has expired!"}), 401)
+        except jwt.InvalidTokenError:
             return (jsonify({"message": "Token is invalid!"}), 401)
+        except Exception as e:
+            logging.exception(f"Token validation error: {e}")
+            return (jsonify({"message": "Token validation failed!"}), 401)
         return f(current_user, *args, **kwargs)
 
     return decorated
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    """Health check endpoint."""
+    return jsonify({"status": "ok"})
+
+
+@app.route("/", methods=["GET"])
+def index():
+    return (jsonify({"message": "Fleetwise API running"}), 200)
 
 
 @app.route("/api/auth/login", methods=["POST"])
@@ -123,6 +146,7 @@ def create_driver(current_user):
         )
     except Exception as e:
         db.session.rollback()
+        logging.exception(f"Error creating driver: {e}")
         return (jsonify({"message": str(e)}), 400)
 
 
@@ -152,6 +176,7 @@ def update_driver(current_user, id):
         return jsonify({"message": "Driver updated successfully"})
     except Exception as e:
         db.session.rollback()
+        logging.exception(f"Error updating driver: {e}")
         return (jsonify({"message": str(e)}), 400)
 
 
@@ -165,17 +190,8 @@ def delete_driver(current_user, id):
         return jsonify({"message": "Driver deleted successfully"})
     except Exception as e:
         db.session.rollback()
+        logging.exception(f"Error deleting driver: {e}")
         return (jsonify({"message": str(e)}), 400)
-
-
-@app.route("/health", methods=["GET"])
-def health():
-    return (jsonify({"status": "ok"}), 200)
-
-
-@app.route("/", methods=["GET"])
-def index():
-    return (jsonify({"message": "Fleetwise API running"}), 200)
 
 
 def init_db():

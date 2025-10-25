@@ -16,105 +16,103 @@ def status_badge(status: str) -> rx.Component:
 
 def driver_form() -> rx.Component:
     """Driver form component."""
-    return rx.el.div(
-        rx.el.form(
-            rx.el.div(
-                # Name fields
-                rx.el.div(
-                    rx.el.div(
-                        label_text("First Name"),
-                        md_input(
-                            placeholder="First Name",
-                            name="first_name",
-                            default_value=DriverState.current_driver.first_name,
-                            key=f"fn-{DriverState.show_modal}",
-                        ),
-                        class_name="space-y-2",
-                    ),
-                    rx.el.div(
-                        label_text("Last Name"),
-                        md_input(
-                            placeholder="Last Name",
-                            name="last_name",
-                            default_value=DriverState.current_driver.last_name,
-                            key=f"ln-{DriverState.show_modal}",
-                        ),
-                        class_name="space-y-2",
-                    ),
-                    class_name="flex flex-col md:flex-row gap-4",
-                ),
-                # Email
-                rx.el.div(
-                    label_text("Email"),
-                    md_input(
-                        placeholder="Email",
-                        type="email",
-                        name="email",
-                        default_value=DriverState.current_driver.email,
-                        key=f"email-{DriverState.show_modal}",
-                    ),
-                    class_name="space-y-2",
-                ),
-                # Phone
-                rx.el.div(
-                    label_text("Phone"),
-                    md_input(
-                        placeholder="Phone",
-                        name="phone",
-                        default_value=DriverState.current_driver.phone,
-                        key=f"phone-{DriverState.show_modal}",
-                    ),
-                    class_name="space-y-2",
-                ),
-                # License
-                rx.el.div(
-                    label_text("License Number"),
-                    md_input(
-                        placeholder="License Number",
-                        name="license_number",
-                        default_value=DriverState.current_driver.license_number,
-                        key=f"lic_num-{DriverState.show_modal}",
-                    ),
-                    class_name="space-y-2",
-                ),
-                # License Expiry
-                rx.el.div(
-                    label_text("License Expiry"),
-                    md_input(
-                        type="date",
-                        name="license_expiry",
-                        default_value=DriverState.current_driver.license_expiry,
-                        key=f"lic_exp-{DriverState.show_modal}",
-                    ),
-                    class_name="space-y-2",
-                ),
-                # Status
-                rx.el.div(
-                    label_text("Status"),
-                    rx.el.select(
-                        rx.el.option("active", value="active"),
-                        rx.el.option("inactive", value="inactive"),
-                        name="status",
-                        default_value=DriverState.current_driver.status,
-                        key=f"status-{DriverState.show_modal}",
-                        class_name=COMPONENTS["input"],
-                    ),
-                    class_name="space-y-2",
-                ),
-                class_name="flex flex-col gap-4",
-            ),
-            on_submit=DriverState.handle_driver_submit,
-            reset_on_submit=True,
-            id="driver-form",
-        ),
-        # Form errors
+    return rx.el.form(
         rx.el.div(
-            rx.foreach(
-                DriverState.form_errors,
-                lambda error: rx.el.p(error, class_name=f"text-{COLORS['error']} text-sm font-medium"),
+            # Name fields
+            rx.el.div(
+                rx.el.div(
+                    label_text("First Name"),
+                    md_input(
+                        placeholder="First Name",
+                        name="first_name",
+                        default_value=DriverState.current_driver.first_name,
+                        key=f"fn-{DriverState.show_modal}",
+                    ),
+                    class_name="space-y-2",
+                ),
+                rx.el.div(
+                    label_text("Last Name"),
+                    md_input(
+                        placeholder="Last Name",
+                        name="last_name",
+                        default_value=DriverState.current_driver.last_name,
+                        key=f"ln-{DriverState.show_modal}",
+                    ),
+                    class_name="space-y-2",
+                ),
+                class_name="flex flex-col md:flex-row gap-4",
             ),
-            class_name="mt-2 space-y-1",
+            # Email
+            rx.el.div(
+                label_text("Email"),
+                md_input(
+                    placeholder="Email",
+                    type="email",
+                    name="email",
+                    default_value=DriverState.current_driver.email,
+                    key=f"email-{DriverState.show_modal}",
+                ),
+                class_name="space-y-2",
+            ),
+            # Phone
+            rx.el.div(
+                label_text("Phone"),
+                md_input(
+                    placeholder="Phone",
+                    name="phone",
+                    default_value=DriverState.current_driver.phone,
+                    key=f"phone-{DriverState.show_modal}",
+                ),
+                class_name="space-y-2",
+            ),
+            # License
+            rx.el.div(
+                label_text("License Number"),
+                md_input(
+                    placeholder="License Number",
+                    name="license_number",
+                    default_value=DriverState.current_driver.license_number,
+                    key=f"lic_num-{DriverState.show_modal}",
+                ),
+                class_name="space-y-2",
+            ),
+            # License Expiry
+            rx.el.div(
+                label_text("License Expiry"),
+                md_input(
+                    type="date",
+                    name="license_expiry",
+                    default_value=DriverState.current_driver.license_expiry,
+                    key=f"lic_exp-{DriverState.show_modal}",
+                ),
+                class_name="space-y-2",
+            ),
+            # Status
+            rx.el.div(
+                label_text("Status"),
+                rx.el.select(
+                    rx.el.option("active", value="active"),
+                    rx.el.option("inactive", value="inactive"),
+                    name="status",
+                    default_value=DriverState.current_driver.status,
+                    key=f"status-{DriverState.show_modal}",
+                    class_name=COMPONENTS["input"],
+                ),
+                class_name="space-y-2",
+            ),
+            # Form errors
+            rx.el.div(
+                rx.foreach(
+                    DriverState.form_errors,
+                    lambda error: rx.el.div(error, class_name=f"text-{COLORS['error']} text-sm font-medium"),
+                ),
+                class_name="mt-2 space-y-1",
+            ),
+            class_name="flex flex-col gap-4",
         ),
+        on_submit=DriverState.handle_driver_submit,
+        reset_on_submit=True,
+        id="driver-form",
     )
 
 
@@ -132,12 +130,10 @@ def driver_modal() -> rx.Component:
                 ),
                 rx.radix.primitives.dialog.description(driver_form()),
                 rx.el.div(
-                    rx.radix.primitives.dialog.close(
-                        md_button(
-                            "Cancel",
-                            on_click=DriverState.close_modal,
-                            variant="secondary",
-                        )
+                    md_button(
+                        "Cancel",
+                        on_click=DriverState.close_modal,
+                        variant="secondary",
                     ),
                     md_button(
                         rx.cond(
@@ -173,11 +169,10 @@ def delete_confirmation_dialog() -> rx.Component:
                     class_name=f"text-{COLORS['text_secondary']}",
                 ),
                 rx.el.div(
-                    rx.radix.primitives.dialog.close(
-                        md_button(
-                            "Cancel",
-                            variant="secondary",
-                        )
+                    md_button(
+                        "Cancel",
+                        on_click=DriverState.close_delete_confirm,
+                        variant="secondary",
                     ),
                     md_button(
                         "Delete",

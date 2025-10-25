@@ -41,7 +41,7 @@ class DriverState(AuthState):
         self.is_loading = True
         self.clear_messages()
         try:
-            auth_headers = await self.get_var_value(self.auth_headers)
+            auth_headers = self.auth_headers
             resp = requests.get(
                 f"{API_BASE_URL}/drivers", headers=auth_headers, timeout=5
             )
@@ -106,7 +106,7 @@ class DriverState(AuthState):
         )
         logging.info(f"Sending data to API: {json_data}")
         try:
-            auth_headers = await self.get_var_value(self.auth_headers)
+            auth_headers = self.auth_headers
             logging.info(f"Auth headers: {auth_headers}")
             if self.is_edit_mode and self.current_driver.id:
                 url = f"{API_BASE_URL}/drivers/{self.current_driver.id}"
@@ -145,7 +145,7 @@ class DriverState(AuthState):
         self.is_loading = True
         self.clear_messages()
         try:
-            auth_headers = await self.get_var_value(self.auth_headers)
+            auth_headers = self.auth_headers
             url = f"{API_BASE_URL}/drivers/{self.deleting_driver_id}"
             resp = requests.delete(url, headers=auth_headers, timeout=5)
             resp.raise_for_status()

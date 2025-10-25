@@ -8,9 +8,9 @@ from .base_state import BaseState, API_BASE_URL
 class AuthState(BaseState):
     """Handles authentication and session management."""
 
-    token: str | None = rx.Cookie(None)
-    email: str | None = ""
-    password: str | None = ""
+    token: str = rx.Cookie("")
+    email: str = ""
+    password: str = ""
 
     @rx.var
     def is_authenticated(self) -> bool:
@@ -66,7 +66,7 @@ class AuthState(BaseState):
     @rx.event
     def logout(self):
         """Handle logout."""
-        self.token = None
+        self.token = ""
         self.email = ""
         self.password = ""
         return rx.redirect("/login")
