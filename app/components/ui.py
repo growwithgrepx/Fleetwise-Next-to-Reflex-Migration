@@ -1,5 +1,6 @@
 import reflex as rx
 
+
 def md_button(*children, **props) -> rx.Component:
     """A Material Design 3 inspired button."""
     base_props = {
@@ -15,8 +16,8 @@ def md_button(*children, **props) -> rx.Component:
         "shadow": "sm",
         "_hover_shadow": "md",
     }
-    
     return rx.button(*children, **{**base_props, **props})
+
 
 def md_input(placeholder: str, type_: str = "text", **props) -> rx.Component:
     """A Material Design 3 inspired input field."""
@@ -32,8 +33,8 @@ def md_input(placeholder: str, type_: str = "text", **props) -> rx.Component:
         "placeholder": placeholder,
         "type": type_,
     }
-    
     return rx.input(**{**base_props, **props})
+
 
 def md_card(*children, **props) -> rx.Component:
     """A Material Design 3 inspired card."""
@@ -45,5 +46,4 @@ def md_card(*children, **props) -> rx.Component:
         "border": "1px solid",
         "border_color": "gray.100",
     }
-    
     return rx.box(*children, **{**base_props, **props})

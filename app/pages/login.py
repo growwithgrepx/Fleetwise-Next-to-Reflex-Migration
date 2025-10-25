@@ -2,6 +2,7 @@ import reflex as rx
 from app.states.auth_state import AuthState
 from app.components.ui import md_input, md_button, md_card
 
+
 def login_page() -> rx.Component:
     """The login page for the Fleetwise app."""
     return rx.el.main(
@@ -37,10 +38,7 @@ def login_page() -> rx.Component:
                             ),
                         ),
                         md_button(
-                            "Login", 
-                            type="submit", 
-                            width="100%", 
-                            class_name="mt-4"
+                            "Login", type="submit", width="100%", class_name="mt-4"
                         ),
                         class_name="flex flex-col gap-4",
                     ),

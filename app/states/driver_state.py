@@ -1,12 +1,13 @@
-# FILE: app/states/driver_state.py
 import reflex as rx
 import requests
-from typing import List, Optional
+from typing import Optional
+import logging
 from .auth_state import AuthState, API_BASE_URL
 from reflex import Base
 
+
 class Driver(Base):
-    id: Optional[int] = None
+    id: int | None = None
     first_name: str = ""
     last_name: str = ""
     email: str = ""
@@ -15,119 +16,171 @@ class Driver(Base):
     license_expiry: str = ""
     status: str = "active"
 
+
 class DriverState(AuthState):
     """State for managing drivers."""
 
-    drivers: List[Driver] = []
+    drivers: list[Driver] = []
     current_driver: Driver = Driver()
     show_modal: bool = False
     is_edit_mode: bool = False
-    deleting_driver_id: Optional[int] = None
+    is_saving: bool = False
+    form_errors: list[str] = []
+    deleting_driver_id: int = 0
 
     @rx.event
-    def fetch_drivers(self):
-        """Fetch all drivers from the API."""
+    async def on_load_fetch_drivers(self):
+        """Event handler for page load. Ensures user is authenticated before fetching."""
         if not self.is_authenticated:
-            return
+            return rx.redirect("/login")
+        return self._fetch_drivers
+
+    async def _fetch_drivers(self):
+        """Internal method to fetch all drivers from the API."""
+        self.is_loading = True
+        self.clear_messages()
         try:
-            resp = requests.get(f"{API_BASE_URL}/drivers", headers=self.auth_headers, timeout=5)
-            if resp.status_code == 200:
-                self.drivers = [Driver(**d) for d in resp.json()]
-            else:
-                self.show_error(f"Failed to fetch drivers: {resp.status_code}")
+            auth_headers = await self.get_var_value(self.auth_headers)
+            resp = requests.get(
+                f"{API_BASE_URL}/drivers", headers=auth_headers, timeout=5
+            )
+            resp.raise_for_status()
+            self.drivers = [Driver(**d) for d in resp.json()]
         except requests.exceptions.RequestException as e:
-            self.show_error(f"Error fetching drivers: {e}")
+            logging.exception(f"Error: {e}")
+            self.show_error(
+                f"API Error: Could not fetch drivers. Please ensure the backend is running."
+            )
+        finally:
+            self.is_loading = False
 
     @rx.event
     def open_add_modal(self):
-        self.current_driver = Driver()
+        """Open the modal to add a new driver."""
+        self.clear_messages()
+        self.form_errors = []
+        self.current_driver = Driver(status="active")
         self.is_edit_mode = False
         self.show_modal = True
 
     @rx.event
     def open_edit_modal(self, driver_id: int):
+        """Open the modal to edit an existing driver."""
+        self.clear_messages()
+        self.form_errors = []
         driver = next((d for d in self.drivers if d.id == driver_id), None)
         if not driver:
-            self.show_error("Driver not found")
+            self.show_error("Driver not found.")
             return
         self.current_driver = driver
         self.is_edit_mode = True
         self.show_modal = True
 
-    @rx.event
-    def save_driver(self):
-        """Create or update a driver via API."""
-        if not self.current_driver:
-            self.show_error("No driver data to save")
-            return
-        json_data = self.current_driver.model_dump(exclude=["id"] if notself.is_edit_mode else None)
-        try:
-            if self.is_edit_mode and self.current_driver.id:
-                resp = requests.put(
-                    f"{API_BASE_URL}/drivers/{self.current_driver.id}",
-                    json=json_data,
-                    headers=self.auth_headers,
-                    timeout=5,
-                )
-            else:
-                resp = requests.post(
-                    f"{API_BASE_URL}/drivers",
-                    json=json_data,
-                    headers=self.auth_headers,
-                    timeout=5,
-                )
+    def _validate_driver_form(self) -> bool:
+        """Validate the driver form data."""
+        self.form_errors = []
+        if not self.current_driver.first_name.strip():
+            self.form_errors.append("First name is required.")
+        if not self.current_driver.last_name.strip():
+            self.form_errors.append("Last name is required.")
+        if not self.current_driver.email.strip():
+            self.form_errors.append("Email is required.")
+        if not self.current_driver.license_number.strip():
+            self.form_errors.append("License number is required.")
+        if not self.current_driver.license_expiry:
+            self.form_errors.append("License expiry date is required.")
+        return len(self.form_errors) == 0
 
-            if resp.status_code in (200, 201):
-                self.show_success("Driver saved")
-                self.fetch_drivers()
-                self.close_modal()
+    async def _save_driver(self):
+        """Internal method to create or update a driver via API."""
+        self.is_saving = True
+        self.clear_messages()
+        if not self._validate_driver_form():
+            self.is_saving = False
+            return
+        json_data = self.current_driver.model_dump(
+            exclude={"id"} if not self.is_edit_mode else None
+        )
+        try:
+            auth_headers = await self.get_var_value(self.auth_headers)
+            if self.is_edit_mode and self.current_driver.id:
+                url = f"{API_BASE_URL}/drivers/{self.current_driver.id}"
+                resp = requests.put(
+                    url, json=json_data, headers=auth_headers, timeout=5
+                )
             else:
-                self.show_error(f"Failed to save driver: {resp.status_code}")
+                url = f"{API_BASE_URL}/drivers"
+                resp = requests.post(
+                    url, json=json_data, headers=auth_headers, timeout=5
+                )
+            resp.raise_for_status()
+            self.show_success("Driver saved successfully!")
+            yield self._fetch_drivers()
+            self.close_modal()
         except requests.exceptions.RequestException as e:
-            self.show_error(f"Error saving driver: {e}")
+            logging.exception(f"Error: {e}")
+            self.show_error(f"API Error: Failed to save driver.")
+        finally:
+            self.is_saving = False
+
+    @rx.event
+    def save_driver_from_modal(self):
+        """Event handler to save the driver from the modal form."""
+        return self._save_driver
 
     @rx.event
     def delete_driver(self):
-        if not self.deleting_driver_id:
-            self.show_error("No driver selected to delete")
+        """Delete a driver after confirmation."""
+        if self.deleting_driver_id == 0:
+            self.show_error("No driver selected for deletion.")
             return
+        self.is_loading = True
+        self.clear_messages()
         try:
-            resp = requests.delete(
-                f"{API_BASE_URL}/drivers/{self.deleting_driver_id}",
-                headers=self.auth_headers,
-                timeout=5,
-            )
-            if resp.status_code == 200:
-                self.show_success("Driver deleted")
-                self.fetch_drivers()
-            else:
-                self.show_error(f"Failed to delete driver: {resp.status_code}")
+            auth_headers = self.auth_headers
+            url = f"{API_BASE_URL}/drivers/{self.deleting_driver_id}"
+            resp = requests.delete(url, headers=auth_headers, timeout=5)
+            resp.raise_for_status()
+            self.show_success("Driver deleted successfully.")
+            yield self._fetch_drivers()
         except requests.exceptions.RequestException as e:
-            self.show_error(f"Error deleting driver: {e}")
+            logging.exception(f"Error: {e}")
+            self.show_error(f"API Error: Failed to delete driver.")
         finally:
-            self.deleting_driver_id = None
+            self.close_delete_confirm()
+            self.is_loading = False
 
     @rx.event
     def close_modal(self):
+        """Close the add/edit modal and reset state."""
         self.show_modal = False
         self.current_driver = Driver()
         self.is_edit_mode = False
+        self.is_saving = False
+        self.form_errors = []
 
     @rx.event
     def handle_driver_submit(self, form_data: dict[str, str]):
-        """Handle form submission coming from the page form (form_data dict)."""
+        """Handle form submission from the modal."""
         if not isinstance(form_data, dict):
             self.show_error("Invalid form submission")
             return
-
-        id_value = self.current_driver.id if self.is_edit_mode else None
-        self.current_driver = Driver(**form_data, id=id_value)
-        return self.save_driver()
+        self.current_driver.first_name = form_data.get("first_name", "")
+        self.current_driver.last_name = form_data.get("last_name", "")
+        self.current_driver.email = form_data.get("email", "")
+        self.current_driver.phone = form_data.get("phone", "")
+        self.current_driver.license_number = form_data.get("license_number", "")
+        self.current_driver.license_expiry = form_data.get("license_expiry", "")
+        self.current_driver.status = form_data.get("status", "active")
+        return self._save_driver
 
     @rx.event
     def open_delete_confirm(self, driver_id: int):
+        """Open the delete confirmation dialog."""
+        self.clear_messages()
         self.deleting_driver_id = driver_id
 
     @rx.event
     def close_delete_confirm(self):
-        self.deleting_driver_id = None
+        """Close the delete confirmation dialog."""
+        self.deleting_driver_id = 0

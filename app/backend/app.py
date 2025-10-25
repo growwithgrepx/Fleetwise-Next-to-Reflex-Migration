@@ -6,6 +6,7 @@ import jwt
 from datetime import datetime, timedelta
 from functools import wraps
 from werkzeug.security import generate_password_hash
+import logging
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -23,7 +24,8 @@ def token_required(f):
             token = token.split(" ")[1]
             data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
             current_user = User.query.filter_by(id=data["user_id"]).first()
-        except:
+        except Exception as e:
+            logging.exception(f"Error decoding token: {e}")
             return (jsonify({"message": "Token is invalid!"}), 401)
         return f(current_user, *args, **kwargs)
 
@@ -116,6 +118,7 @@ def create_driver(current_user):
         )
     except Exception as e:
         db.session.rollback()
+        logging.exception(f"Error creating driver: {e}")
         return (jsonify({"message": str(e)}), 400)
 
 
@@ -145,6 +148,7 @@ def update_driver(current_user, id):
         return jsonify({"message": "Driver updated successfully"})
     except Exception as e:
         db.session.rollback()
+        logging.exception(f"Error updating driver: {e}")
         return (jsonify({"message": str(e)}), 400)
 
 
@@ -158,6 +162,7 @@ def delete_driver(current_user, id):
         return jsonify({"message": "Driver deleted successfully"})
     except Exception as e:
         db.session.rollback()
+        logging.exception(f"Error deleting driver: {e}")
         return (jsonify({"message": str(e)}), 400)
 
 
