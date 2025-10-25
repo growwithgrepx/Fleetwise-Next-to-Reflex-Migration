@@ -1,27 +1,29 @@
 #!/bin/bash
 ###############################################################################
-# Fleetwise - Production-Grade Startup Script (Unix/Linux/macOS)
-###############################################################################
-# Description: Gracefully cleans ports, starts services with proper ordering
-# Author: DevOps Team
-# Last Modified: 2025-10-25
+# Fleetwise - Startup Script with Port Cleanup (Unix/Linux/macOS)
 ###############################################################################
 
-set -euo pipefail  # Exit on error, undefined vars, pipe failures
+set -euo pipefail
 
-# Colors for output
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # Create logs directory
 mkdir -p logs
 
-# Set log file with timestamp
-TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-LOGFILE="logs/start_${TIMESTAMP}.log"
+# Use fixed log names (overwrite previous run)
+LOGFILE="logs/start.log"
+BACKEND_LOG="logs/backend.log"
+REFLEX_LOG="logs/reflex.log"
+
+# Clear previous logs
+> "$LOGFILE"
+> "$BACKEND_LOG"
+> "$REFLEX_LOG"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"
@@ -51,6 +53,21 @@ if ! command -v python3 &> /dev/null; then
 fi
 echo -e "${GREEN}[OK]${NC} Python 3 installed"
 
+# Check Python dependencies
+echo "  Checking Python dependencies..."
+if ! python3 -c "import flask_cors" 2>/dev/null; then
+    echo -e "${YELLOW}[WARNING]${NC} Missing dependencies. Installing..."
+    log "Installing Python dependencies"
+    python3 -m pip install -q flask flask-cors flask-sqlalchemy pyjwt werkzeug requests reflex
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}[ERROR]${NC} Failed to install dependencies"
+        log "ERROR: pip install failed"
+        echo "Run manually: pip install -r requirements.txt"
+        exit 1
+    fi
+    echo -e "${GREEN}[OK]${NC} Dependencies installed"
+fi
+
 if ! command -v reflex &> /dev/null; then
     echo -e "${RED}[ERROR]${NC} Reflex is not installed"
     log "ERROR: Reflex not found"
@@ -58,21 +75,18 @@ if ! command -v reflex &> /dev/null; then
 fi
 echo -e "${GREEN}[OK]${NC} Reflex installed"
 
-# Step 2: Clean Orphaned Processes
+# Step 2: Force Clean ALL Orphaned Processes
 echo ""
 echo -e "${BLUE}[2/6]${NC} Cleaning orphaned processes on ports 3000, 8000, 8001..."
-log "Cleaning ports"
+log "Force cleaning ports"
 
 for PORT in 3000 8000 8001; do
     echo "  Checking port $PORT..."
     if command -v lsof &> /dev/null; then
-        # macOS/Linux with lsof
         PIDS=$(lsof -ti:$PORT 2>/dev/null || true)
     elif command -v fuser &> /dev/null; then
-        # Linux with fuser
         PIDS=$(fuser $PORT/tcp 2>/dev/null | tr -s ' ' '\n' || true)
     else
-        echo -e "${YELLOW}[WARNING]${NC} Cannot check port $PORT (lsof/fuser not available)"
         continue
     fi
     
@@ -80,12 +94,20 @@ for PORT in 3000 8000 8001; do
         for PID in $PIDS; do
             if [ -n "$PID" ] && [ "$PID" != "" ]; then
                 echo "    Killing process $PID on port $PORT"
-                log "Killing PID $PID on port $PORT"
+                log "Force killing PID $PID on port $PORT"
                 kill -9 $PID 2>/dev/null || true
             fi
         done
     fi
 done
+
+# Also kill any reflex/node processes by name
+if command -v pkill &> /dev/null; then
+    pkill -9 -f "reflex run" 2>/dev/null || true
+    pkill -9 -f "react-router" 2>/dev/null || true
+    pkill -9 -f "node.*vite" 2>/dev/null || true
+fi
+
 echo -e "${GREEN}[OK]${NC} Ports cleaned"
 
 # Step 3: Verify Port Availability
@@ -93,12 +115,12 @@ echo ""
 echo -e "${BLUE}[3/6]${NC} Verifying port availability..."
 log "Verifying ports"
 
-sleep 2
+sleep 3
 
 for PORT in 3000 8000 8001; do
     if command -v lsof &> /dev/null; then
         if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
-            echo -e "${RED}[ERROR]${NC} Port $PORT still in use!"
+            echo -e "${RED}[ERROR]${NC} Port $PORT still in use after cleanup!"
             log "ERROR: Port $PORT still in use"
             exit 1
         fi
@@ -111,7 +133,7 @@ echo ""
 echo -e "${BLUE}[4/6]${NC} Starting Flask backend (port 8000)..."
 log "Starting Flask backend"
 
-python3 backend/app.py > "logs/backend_${TIMESTAMP}.log" 2>&1 &
+python3 backend/app.py > "$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 echo $BACKEND_PID > "logs/backend.pid"
 
@@ -122,7 +144,11 @@ sleep 5
 if ! kill -0 $BACKEND_PID 2>/dev/null; then
     echo -e "${RED}[ERROR]${NC} Backend process died"
     log "ERROR: Backend process died"
-    echo "Check logs/backend_${TIMESTAMP}.log for details"
+    echo ""
+    echo "Backend error log:"
+    tail -20 "$BACKEND_LOG"
+    echo ""
+    echo "Full log: $BACKEND_LOG"
     exit 1
 fi
 
@@ -131,7 +157,11 @@ if command -v lsof &> /dev/null; then
     if ! lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null 2>&1; then
         echo -e "${RED}[ERROR]${NC} Backend not listening on port 8000"
         log "ERROR: Backend startup failed"
-        echo "Check logs/backend_${TIMESTAMP}.log for details"
+        echo ""
+        echo "Backend error log:"
+        tail -20 "$BACKEND_LOG"
+        echo ""
+        echo "Full log: $BACKEND_LOG"
         exit 1
     fi
 fi
@@ -144,18 +174,22 @@ echo ""
 echo -e "${BLUE}[5/6]${NC} Starting Reflex frontend (ports 3000, 8001)..."
 log "Starting Reflex frontend"
 
-reflex run > "logs/reflex_${TIMESTAMP}.log" 2>&1 &
+reflex run > "$REFLEX_LOG" 2>&1 &
 FRONTEND_PID=$!
 echo $FRONTEND_PID > "logs/reflex.pid"
 
-echo "  Waiting for frontend compilation..."
-sleep 15
+echo "  Waiting for frontend compilation (20 seconds)..."
+sleep 20
 
 # Verify frontend is running
 if ! kill -0 $FRONTEND_PID 2>/dev/null; then
     echo -e "${RED}[ERROR]${NC} Frontend process died"
     log "ERROR: Frontend process died"
-    echo "Check logs/reflex_${TIMESTAMP}.log for details"
+    echo ""
+    echo "Frontend error log:"
+    tail -20 "$REFLEX_LOG"
+    echo ""
+    echo "Full log: $REFLEX_LOG"
     exit 1
 fi
 
@@ -164,7 +198,11 @@ if command -v lsof &> /dev/null; then
     if ! lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null 2>&1; then
         echo -e "${RED}[ERROR]${NC} Frontend not listening on port 3000"
         log "ERROR: Frontend startup failed"
-        echo "Check logs/reflex_${TIMESTAMP}.log for details"
+        echo ""
+        echo "Frontend error log:"
+        tail -20 "$REFLEX_LOG"
+        echo ""
+        echo "Full log: $REFLEX_LOG"
         exit 1
     fi
     
@@ -191,9 +229,9 @@ echo -e "  ${GREEN}Fleetwise is READY!${NC}"
 echo "========================================"
 echo ""
 echo "  Services:"
-echo -e "    ${GREEN}[*]${NC} Backend API:     http://127.0.0.1:8000"
-echo -e "    ${GREEN}[*]${NC} Reflex Backend:  http://127.0.0.1:8001"
-echo -e "    ${GREEN}[*]${NC} Frontend UI:     http://localhost:3000"
+echo -e "    ${GREEN}[✓]${NC} Backend API:     http://127.0.0.1:8000"
+echo -e "    ${GREEN}[✓]${NC} Reflex Backend:  http://127.0.0.1:8001"
+echo -e "    ${GREEN}[✓]${NC} Frontend UI:     http://localhost:3000"
 echo ""
 echo "  Login:"
 echo "    Email:    admin@fleetwise.com"
@@ -202,11 +240,12 @@ echo ""
 echo "  Management:"
 echo "    ./stop.sh    - Stop all services"
 echo "    ./restart.sh - Restart services"
+echo "    ./status.sh  - Check service status"
 echo ""
 echo "  Logs:"
 echo "    $LOGFILE"
-echo "    logs/backend_${TIMESTAMP}.log"
-echo "    logs/reflex_${TIMESTAMP}.log"
+echo "    $BACKEND_LOG"
+echo "    $REFLEX_LOG"
 echo ""
 echo "  PIDs saved to:"
 echo "    logs/backend.pid ($BACKEND_PID)"

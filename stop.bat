@@ -1,10 +1,6 @@
 @echo off
 REM =============================================================================
-REM Fleetwise - Production-Grade Shutdown Script (Windows)
-REM =============================================================================
-REM Description: Gracefully terminates all Fleetwise services
-REM Author: DevOps Team
-REM Last Modified: 2025-10-25
+REM Fleetwise - Graceful Shutdown Script (Windows)
 REM =============================================================================
 
 setlocal enabledelayedexpansion
@@ -12,10 +8,9 @@ setlocal enabledelayedexpansion
 REM Create logs directory
 if not exist "logs" mkdir logs
 
-REM Set log file with timestamp
-for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
-set TIMESTAMP=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2%_%datetime:~8,2%-%datetime:~10,2%-%datetime:~12,2%
-set LOGFILE=logs\stop_%TIMESTAMP%.log
+REM Use fixed log name (overwrite previous run)
+set LOGFILE=logs\stop.log
+type nul > %LOGFILE%
 
 echo [%date% %time%] ======================================== >> %LOGFILE%
 echo [%date% %time%] Stopping Fleetwise Application >> %LOGFILE%
@@ -30,49 +25,59 @@ echo [INFO] Initiating graceful shutdown...
 echo [INFO] Log file: %LOGFILE%
 echo.
 
-REM Step 1: Terminate Reflex processes (frontend + backend)
-echo [1/4] Stopping Reflex processes...
-echo [%date% %time%] Terminating Reflex processes >> %LOGFILE%
+REM Step 1: Graceful Stop - Try normal termination first
+echo [1/4] Attempting graceful shutdown...
+echo [%date% %time%] Attempting graceful shutdown >> %LOGFILE%
 
-taskkill /FI "WindowTitle eq Fleetwise-Frontend*" /F >nul 2>&1
-taskkill /FI "IMAGENAME eq reflex.exe" /F >nul 2>&1
+taskkill /FI "WindowTitle eq Fleetwise-Frontend*" >nul 2>&1
+taskkill /FI "WindowTitle eq Fleetwise-Backend*" >nul 2>&1
 
-REM Kill Node.js processes spawned by Reflex
-for /f "tokens=2" %%a in ('tasklist ^| findstr "node.exe"') do (
-    echo   Terminating Node.js process %%a
-    echo [%date% %time%] Killing Node.js PID %%a >> %LOGFILE%
-    taskkill /F /PID %%a >nul 2>&1
+echo   Waiting 3 seconds for graceful shutdown...
+timeout /t 3 /nobreak >nul
+
+REM Step 2: Check if processes stopped, force kill if needed
+echo.
+echo [2/4] Checking for remaining processes...
+echo [%date% %time%] Checking for remaining processes >> %LOGFILE%
+
+set FORCE_KILL_NEEDED=0
+
+REM Force kill reflex and node processes
+taskkill /F /IM reflex.exe >nul 2>&1
+if not errorlevel 1 (
+    echo   Force killed Reflex processes
+    echo [%date% %time%] Force killed Reflex >> %LOGFILE%
+    set FORCE_KILL_NEEDED=1
 )
 
-echo [OK] Reflex processes terminated
-
-REM Step 2: Terminate Flask backend
-echo.
-echo [2/4] Stopping Flask backend...
-echo [%date% %time%] Terminating Flask backend >> %LOGFILE%
-
-taskkill /FI "WindowTitle eq Fleetwise-Backend*" /F >nul 2>&1
-
-REM Kill Python processes on port 8000
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8000 ^| findstr LISTENING') do (
-    echo   Terminating Flask process %%a
-    echo [%date% %time%] Killing Flask PID %%a on port 8000 >> %LOGFILE%
-    taskkill /F /PID %%a >nul 2>&1
+taskkill /F /IM node.exe >nul 2>&1
+if not errorlevel 1 (
+    echo   Force killed Node.js processes
+    echo [%date% %time%] Force killed Node.js >> %LOGFILE%
+    set FORCE_KILL_NEEDED=1
 )
 
-echo [OK] Flask backend terminated
+REM Delete PID files
+if exist logs\backend.pid del logs\backend.pid
+if exist logs\reflex.pid del logs\reflex.pid
 
-REM Step 3: Clean all service ports
+if %FORCE_KILL_NEEDED%==1 (
+    echo [OK] Force kill was necessary
+) else (
+    echo [OK] Graceful shutdown successful
+)
+
+REM Step 3: Force Clean ALL Service Ports
 echo.
-echo [3/4] Cleaning service ports (3000, 8000, 8001)...
-echo [%date% %time%] Cleaning ports >> %LOGFILE%
+echo [3/4] Force cleaning service ports (3000, 8000, 8001)...
+echo [%date% %time%] Force cleaning ports >> %LOGFILE%
 
 for %%P in (3000 8000 8001) do (
     echo   Checking port %%P...
-    for /f "tokens=5" %%a in ('netstat -aon ^| findstr :%%P ^| findstr LISTENING') do (
+    for /f "tokens=5" %%a in ('netstat -aon ^| findstr :%%P ^| findstr LISTENING 2^>nul') do (
         set PID=%%a
         if !PID! NEQ 0 (
-            echo     Force killing remaining process !PID! on port %%P
+            echo     Force killing process !PID! on port %%P
             echo [%date% %time%] Force killing PID !PID! on port %%P >> %LOGFILE%
             taskkill /F /PID !PID! >nul 2>&1
         )
@@ -81,7 +86,7 @@ for %%P in (3000 8000 8001) do (
 
 echo [OK] Ports cleaned
 
-REM Step 4: Verify all processes stopped
+REM Step 4: Verify All Processes Stopped
 echo.
 echo [4/4] Verifying shutdown...
 echo [%date% %time%] Verifying shutdown >> %LOGFILE%
@@ -103,6 +108,7 @@ if %PORTS_CLEAR%==1 (
     echo [%date% %time%] Shutdown completed successfully >> %LOGFILE%
 ) else (
     echo [WARNING] Some ports may still be in use
+    echo   Run stop.bat again or manually check with: netstat -ano ^| findstr :3000
     echo [%date% %time%] Shutdown completed with warnings >> %LOGFILE%
 )
 
