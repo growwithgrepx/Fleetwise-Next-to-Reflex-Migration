@@ -34,12 +34,12 @@ class DriverState(AuthState):
         """Event handler for page load. Ensures user is authenticated before fetching."""
         if not self.is_authenticated:
             return rx.redirect("/login")
+        self.clear_messages()
         await self._fetch_drivers()
 
     async def _fetch_drivers(self):
         """Internal method to fetch all drivers from the API."""
         self.is_loading = True
-        self.clear_messages()
         try:
             auth_headers = self.auth_headers
             resp = requests.get(
@@ -69,11 +69,18 @@ class DriverState(AuthState):
         """Open the modal to edit an existing driver."""
         self.clear_messages()
         self.form_errors = []
-        driver = next((d for d in self.drivers if d.id == driver_id), None)
+        
+        driver = None
+        for d in self.drivers:
+            if d.id == driver_id:
+                driver = d
+                break
+        
         if not driver:
             self.show_error("Driver not found.")
             return
-        self.current_driver = driver
+        
+        self.current_driver = Driver(**driver.model_dump())
         self.is_edit_mode = True
         self.show_modal = True
 
@@ -101,9 +108,12 @@ class DriverState(AuthState):
             logging.error(f"Validation failed: {self.form_errors}")
             self.is_saving = False
             return
-        json_data = self.current_driver.model_dump(
-            exclude={"id"} if not self.is_edit_mode else None
-        )
+        
+        if self.is_edit_mode and self.current_driver.id:
+            json_data = self.current_driver.model_dump(exclude={"id"})
+        else:
+            json_data = self.current_driver.model_dump(exclude={"id"})
+        
         logging.info(f"Sending data to API: {json_data}")
         try:
             auth_headers = self.auth_headers
@@ -137,7 +147,7 @@ class DriverState(AuthState):
         await self._save_driver()
 
     @rx.event
-    async def delete_driver(self):
+    async def confirm_delete(self):
         """Delete a driver after confirmation."""
         if self.deleting_driver_id == 0:
             self.show_error("No driver selected for deletion.")

@@ -18,7 +18,6 @@ def driver_form() -> rx.Component:
     """Driver form component."""
     return rx.el.form(
         rx.el.div(
-            # Name fields
             rx.el.div(
                 rx.el.div(
                     label_text("First Name"),
@@ -26,7 +25,7 @@ def driver_form() -> rx.Component:
                         placeholder="First Name",
                         name="first_name",
                         default_value=DriverState.current_driver.first_name,
-                        key=f"fn-{DriverState.show_modal}",
+                        key=f"fn-{DriverState.current_driver.id}",
                     ),
                     class_name="space-y-2",
                 ),
@@ -36,13 +35,12 @@ def driver_form() -> rx.Component:
                         placeholder="Last Name",
                         name="last_name",
                         default_value=DriverState.current_driver.last_name,
-                        key=f"ln-{DriverState.show_modal}",
+                        key=f"ln-{DriverState.current_driver.id}",
                     ),
                     class_name="space-y-2",
                 ),
                 class_name="flex flex-col md:flex-row gap-4",
             ),
-            # Email
             rx.el.div(
                 label_text("Email"),
                 md_input(
@@ -50,44 +48,40 @@ def driver_form() -> rx.Component:
                     type="email",
                     name="email",
                     default_value=DriverState.current_driver.email,
-                    key=f"email-{DriverState.show_modal}",
+                    key=f"email-{DriverState.current_driver.id}",
                 ),
                 class_name="space-y-2",
             ),
-            # Phone
             rx.el.div(
                 label_text("Phone"),
                 md_input(
                     placeholder="Phone",
                     name="phone",
                     default_value=DriverState.current_driver.phone,
-                    key=f"phone-{DriverState.show_modal}",
+                    key=f"phone-{DriverState.current_driver.id}",
                 ),
                 class_name="space-y-2",
             ),
-            # License
             rx.el.div(
                 label_text("License Number"),
                 md_input(
                     placeholder="License Number",
                     name="license_number",
                     default_value=DriverState.current_driver.license_number,
-                    key=f"lic_num-{DriverState.show_modal}",
+                    key=f"lic_num-{DriverState.current_driver.id}",
                 ),
                 class_name="space-y-2",
             ),
-            # License Expiry
             rx.el.div(
                 label_text("License Expiry"),
                 md_input(
                     type="date",
                     name="license_expiry",
                     default_value=DriverState.current_driver.license_expiry,
-                    key=f"lic_exp-{DriverState.show_modal}",
+                    key=f"lic_exp-{DriverState.current_driver.id}",
                 ),
                 class_name="space-y-2",
             ),
-            # Status
             rx.el.div(
                 label_text("Status"),
                 rx.el.select(
@@ -95,12 +89,11 @@ def driver_form() -> rx.Component:
                     rx.el.option("inactive", value="inactive"),
                     name="status",
                     default_value=DriverState.current_driver.status,
-                    key=f"status-{DriverState.show_modal}",
+                    key=f"status-{DriverState.current_driver.id}",
                     class_name=COMPONENTS["input"],
                 ),
                 class_name="space-y-2",
             ),
-            # Form errors
             rx.el.div(
                 rx.foreach(
                     DriverState.form_errors,
@@ -176,7 +169,7 @@ def delete_confirmation_dialog() -> rx.Component:
                     ),
                     md_button(
                         "Delete",
-                        on_click=DriverState.delete_driver,
+                        on_click=DriverState.confirm_delete,
                         variant="danger",
                     ),
                     class_name="flex justify-end gap-3 mt-4",
@@ -189,10 +182,49 @@ def delete_confirmation_dialog() -> rx.Component:
     )
 
 
+def driver_row(driver: rx.Var) -> rx.Component:
+    """Single driver row component."""
+    return rx.el.div(
+        rx.el.div(
+            rx.el.input(
+                type="checkbox",
+                class_name=f"w-4 h-4 rounded border-{COLORS['border_main']} bg-{COLORS['surface_dark']} text-{COLORS['secondary_main']}",
+            ),
+            class_name="w-12 flex items-center justify-center",
+        ),
+        rx.el.p(
+            f"{driver.first_name} {driver.last_name}",
+            class_name=f"w-1/4 truncate text-{COLORS['text_primary']} font-medium",
+        ),
+        rx.el.p(
+            driver.phone,
+            class_name=f"w-1/5 truncate text-{COLORS['text_secondary']} hidden md:block",
+        ),
+        rx.el.p(
+            driver.license_number,
+            class_name=f"w-1/3 truncate text-{COLORS['text_secondary']} hidden lg:block",
+        ),
+        rx.el.div(
+            rx.el.button(
+                rx.icon("pencil", size=18),
+                on_click=DriverState.open_edit_modal(driver.id),
+                class_name=f"p-2 rounded-lg hover:bg-{COLORS['surface_light']} text-{COLORS['secondary_main']} transition-colors",
+            ),
+            rx.el.button(
+                rx.icon("trash-2", size=18),
+                on_click=DriverState.open_delete_confirm(driver.id),
+                class_name=f"p-2 rounded-lg hover:bg-{COLORS['error']}/10 text-{COLORS['error']} transition-colors",
+            ),
+            class_name="w-32 flex items-center justify-end gap-1",
+        ),
+        class_name=f"flex items-center px-6 py-4 border-b border-{COLORS['border_main']} hover:bg-{COLORS['surface_light']} transition-colors",
+    )
+
+
 def drivers_table() -> rx.Component:
     """Responsive drivers table matching target design."""
     header = rx.el.div(
-        rx.el.div(class_name="w-12"),  # Checkbox column
+        rx.el.div(class_name="w-12"),
         rx.el.p("Name", class_name=f"font-semibold w-1/4 text-{COLORS['text_secondary']}"),
         rx.el.p("Mobile", class_name=f"font-semibold w-1/5 text-{COLORS['text_secondary']} hidden md:block"),
         rx.el.p("Vehicle", class_name=f"font-semibold w-1/3 text-{COLORS['text_secondary']} hidden lg:block"),
@@ -201,54 +233,7 @@ def drivers_table() -> rx.Component:
     )
     
     rows = rx.el.div(
-        rx.foreach(
-            DriverState.drivers,
-            lambda d: rx.el.div(
-                # Checkbox
-                rx.el.div(
-                    rx.el.input(
-                        type="checkbox",
-                        class_name=f"w-4 h-4 rounded border-{COLORS['border_main']} bg-{COLORS['surface_dark']} text-{COLORS['secondary_main']}",
-                    ),
-                    class_name="w-12 flex items-center justify-center",
-                ),
-                # Name
-                rx.el.p(
-                    f"{d.first_name} {d.last_name}",
-                    class_name=f"w-1/4 truncate text-{COLORS['text_primary']} font-medium",
-                ),
-                # Mobile (Phone)
-                rx.el.p(
-                    d.phone,
-                    class_name=f"w-1/5 truncate text-{COLORS['text_secondary']} hidden md:block",
-                ),
-                # Vehicle (License info as placeholder)
-                rx.el.p(
-                    f"{d.license_number}",
-                    class_name=f"w-1/3 truncate text-{COLORS['text_secondary']} hidden lg:block",
-                ),
-                # Actions - Icon buttons
-                rx.el.div(
-                    rx.el.button(
-                        rx.icon("eye", size=18),
-                        on_click=lambda driver_id=d.id: DriverState.open_edit_modal(driver_id),
-                        class_name=f"p-2 rounded-lg hover:bg-{COLORS['surface_light']} text-{COLORS['secondary_main']} transition-colors",
-                    ),
-                    rx.el.button(
-                        rx.icon("pencil", size=18),
-                        on_click=lambda driver_id=d.id: DriverState.open_edit_modal(driver_id),
-                        class_name=f"p-2 rounded-lg hover:bg-{COLORS['surface_light']} text-{COLORS['secondary_main']} transition-colors",
-                    ),
-                    rx.el.button(
-                        rx.icon("trash-2", size=18),
-                        on_click=lambda driver_id=d.id: DriverState.open_delete_confirm(driver_id),
-                        class_name=f"p-2 rounded-lg hover:bg-{COLORS['error']}/10 text-{COLORS['error']} transition-colors",
-                    ),
-                    class_name="w-32 flex items-center justify-end gap-1",
-                ),
-                class_name=f"flex items-center px-6 py-4 border-b border-{COLORS['border_main']} hover:bg-{COLORS['surface_light']} transition-colors",
-            ),
-        ),
+        rx.foreach(DriverState.drivers, driver_row),
         class_name="flex flex-col",
     )
     
@@ -271,7 +256,6 @@ def drivers_page() -> rx.Component:
     return rx.el.div(
         sidebar(),
         rx.el.div(
-            # Header
             rx.el.div(
                 rx.el.h1("Drivers", class_name=f"text-3xl font-bold text-{COLORS['text_primary']}"),
                 md_button(
@@ -282,22 +266,18 @@ def drivers_page() -> rx.Component:
                 ),
                 class_name=f"flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full p-8 bg-{COLORS['primary_main']}",
             ),
-            # Error message
             rx.cond(
                 DriverState.error != "",
                 alert_error(DriverState.error, class_name="mx-8 mt-6"),
             ),
-            # Success message
             rx.cond(
                 DriverState.success != "",
                 alert_success(DriverState.success, class_name="mx-8 mt-6"),
             ),
-            # Table
             rx.el.div(
                 drivers_table(),
                 class_name="p-8",
             ),
-            # Modals
             driver_modal(),
             delete_confirmation_dialog(),
             class_name=f"flex-1 flex flex-col bg-{COLORS['primary_main']} overflow-auto w-full",

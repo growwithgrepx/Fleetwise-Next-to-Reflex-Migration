@@ -3,7 +3,7 @@ from typing import Optional
 import logging
 
 API_HOST = "127.0.0.1"
-API_PORT = 8000  # Python backend port (not Reflex backend)
+API_PORT = 8000
 API_BASE_URL = f"http://{API_HOST}:{API_PORT}/api"
 
 
@@ -33,3 +33,7 @@ class BaseState(rx.State):
         """Clear all messages."""
         self.error = ""
         self.success = ""
+    
+    def on_load(self):
+        """Clear messages on page load."""
+        self.clear_messages()
