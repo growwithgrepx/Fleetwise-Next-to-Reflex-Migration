@@ -5,12 +5,28 @@ from app.styles import COMPONENTS, TEXT
 def md_button(*children, **props) -> rx.Component:
     """Primary button with theme."""
     variant = props.pop("variant", "primary")
+    is_loading = props.pop("is_loading", False)
     style_map = {
         "primary": COMPONENTS["button_primary"],
         "secondary": COMPONENTS["button_secondary"],
         "danger": COMPONENTS["button_danger"],
     }
     class_name = " ".join([style_map.get(variant, COMPONENTS["button_primary"]), props.pop("class_name", "")])
+    
+    # Handle loading state - check if it's a Reflex Var or regular bool
+    if is_loading is not False:
+        # If is_loading is provided (either Var or True), show loading state
+        return rx.cond(
+            is_loading,
+            rx.el.button(
+                rx.spinner(size="1", class_name="mr-2"),
+                *children,
+                class_name=class_name,
+                disabled=True,
+                **props
+            ),
+            rx.el.button(*children, class_name=class_name, **props)
+        )
     return rx.el.button(*children, class_name=class_name, **props)
 
 

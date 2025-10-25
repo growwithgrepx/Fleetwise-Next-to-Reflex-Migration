@@ -94,33 +94,40 @@ class DriverState(AuthState):
 
     async def _save_driver(self):
         """Internal method to create or update a driver via API."""
+        logging.info("_save_driver called")
         self.is_saving = True
         self.clear_messages()
         if not self._validate_driver_form():
+            logging.error(f"Validation failed: {self.form_errors}")
             self.is_saving = False
             return
         json_data = self.current_driver.model_dump(
             exclude={"id"} if not self.is_edit_mode else None
         )
+        logging.info(f"Sending data to API: {json_data}")
         try:
             auth_headers = await self.get_var_value(self.auth_headers)
+            logging.info(f"Auth headers: {auth_headers}")
             if self.is_edit_mode and self.current_driver.id:
                 url = f"{API_BASE_URL}/drivers/{self.current_driver.id}"
+                logging.info(f"PUT to {url}")
                 resp = requests.put(
                     url, json=json_data, headers=auth_headers, timeout=5
                 )
             else:
                 url = f"{API_BASE_URL}/drivers"
+                logging.info(f"POST to {url}")
                 resp = requests.post(
                     url, json=json_data, headers=auth_headers, timeout=5
                 )
+            logging.info(f"Response: {resp.status_code} - {resp.text}")
             resp.raise_for_status()
             self.show_success("Driver saved successfully!")
             await self._fetch_drivers()
             self.close_modal()
         except requests.exceptions.RequestException as e:
-            logging.exception(f"Error: {e}")
-            self.show_error(f"API Error: Failed to save driver.")
+            logging.exception(f"Error saving driver: {e}")
+            self.show_error(f"API Error: Failed to save driver. {str(e)}")
         finally:
             self.is_saving = False
 
@@ -163,6 +170,7 @@ class DriverState(AuthState):
     @rx.event
     async def handle_driver_submit(self, form_data: dict):
         """Handle form submission from the modal."""
+        logging.info(f"Form submitted with data: {form_data}")
         if not isinstance(form_data, dict):
             self.show_error("Invalid form submission")
             return
@@ -173,6 +181,7 @@ class DriverState(AuthState):
         self.current_driver.license_number = str(form_data.get("license_number", ""))
         self.current_driver.license_expiry = str(form_data.get("license_expiry", ""))
         self.current_driver.status = str(form_data.get("status", "active"))
+        logging.info(f"Calling _save_driver with: {self.current_driver}")
         await self._save_driver()
 
     @rx.event
