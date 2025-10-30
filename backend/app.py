@@ -4,7 +4,6 @@ import sys
 import os
 from pathlib import Path
 
-# Add parent directory to path for relative imports
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config import Config
@@ -28,7 +27,6 @@ def token_required(f):
         if not token:
             return (jsonify({"message": "Token is missing!"}), 401)
         try:
-            # Extract token from "Bearer <token>" format
             parts = token.split(" ")
             if len(parts) != 2 or parts[0] != "Bearer":
                 return (jsonify({"message": "Invalid Authorization header format!"}), 401)
@@ -207,4 +205,5 @@ def init_db():
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="0.0.0.0", debug=True, port=8000)
+    port = int(os.getenv("PORT", "8000"))
+    app.run(host="0.0.0.0", debug=True, port=port)

@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-# Get the backend directory
 BACKEND_DIR = Path(__file__).parent
 
 class Config:

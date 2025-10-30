@@ -1,329 +1,160 @@
-# Fleetwise - Fleet Management System
+# Fleetwise MVP
 
-A modern fleet management application built with **Reflex** (Python web framework) and **Flask** (REST API backend).
+Fleet management application built with Python Reflex framework.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
-- Python 3.10+ (3.11+ recommended)
-- pip (Python package manager)
-- Git
-
-### Installation
-
-1. **Clone or download this project**
-   ```bash
-   cd Fleetwise-Next-to-Reflex-Migration
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Initialize the database**
-   ```bash
-   python -m backend.app
-   # Press Ctrl+C after you see "Running on http://127.0.0.1:8000"
-   ```
-
-### Running the Application
-
-#### Option A: Use the startup scripts (Recommended)
-
-**Linux/Mac:**
 ```bash
-chmod +x start.sh
-./start.sh
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+.venv\Scripts\activate     # Windows
+pip install -r requirements.txt
 ```
 
-**Windows:**
-```batch
-start.bat
-```
-
-#### Option B: Manual startup
-
-**Terminal 1 - Backend:**
+### Start Application
 ```bash
-python -m backend.app
-```
+# Terminal 1 - Backend
+python backend/app.py
 
-**Terminal 2 - Frontend:**
-```bash
+# Terminal 2 - Frontend
 reflex run
 ```
 
-### Access the Application
+### Access
+- **URL**: http://localhost:3000
+- **Login**: admin@fleetwise.com / admin123
 
-Open your browser and go to:
-- **http://localhost:3000** (preferred)
-- **http://127.0.0.1:3000** (alternative)
-- **http://0.0.0.0:3000** (WSL users)
+## Scripts
 
-**Login credentials:**
-- Email: `admin@fleetwise.com`
-- Password: `admin123`
+All management scripts are in `scripts/` directory:
 
-## 📋 Features
+### Windows
+- `scripts\start.bat` - Start all services
+- `scripts\stop.bat` - Stop all services
+- `scripts\restart.bat` - Restart all services
+- `scripts\status.bat` - Check service status
+- `scripts\logs.bat` - View application logs
+- `scripts\cleanup-logs.bat` - Remove old logs (>24h)
 
-- ✅ User authentication with JWT tokens
-- ✅ Driver management (CRUD operations)
-- ✅ Secure password hashing
-- ✅ RESTful API backend
-- ✅ Modern, responsive UI with Material Design
-- ✅ Form validation
-- ✅ Toast notifications
-- ✅ Modal dialogs
-- ✅ Protected routes
+### Linux/macOS
+- `scripts/start.sh` - Start all services
+- `scripts/stop.sh` - Stop all services
+- `scripts/restart.sh` - Restart all services
+- `scripts/status.sh` - Check service status
+- `scripts/logs.sh` - View application logs
+- `scripts/cleanup-logs.sh` - Remove old logs (>24h)
 
-## 🏗️ Architecture
+### Testing
+- `scripts/setup_verify.py` - Verify setup
+- `scripts/test_crud.py` - Test CRUD operations
 
-```
-┌─────────────────┐
-│  Browser        │
-│  (Port 3000)    │
-└────────┬────────┘
-         │
-         ↓
-┌─────────────────┐
-│  Reflex         │
-│  Frontend       │
-│  (FastAPI)      │
-│  Port 8001      │
-└────────┬────────┘
-         │
-         ↓
-┌─────────────────┐
-│  Flask API      │
-│  Backend        │
-│  Port 8000      │
-└────────┬────────┘
-         │
-         ↓
-┌─────────────────┐
-│  SQLite         │
-│  Database       │
-└─────────────────┘
-```
+## Configuration
 
-**Note:** Reflex runs two servers:
-- **Port 3000**: Frontend (Next.js) - what you see in the browser
-- **Port 8001**: Backend state management (FastAPI) - handles Reflex state
+### Local Development
+Default configuration works out of the box.
 
-The Flask API on **Port 8000** is separate and provides the actual data API.
-
-## 📁 Project Structure
-
-```
-Fleetwise-Next-to-Reflex-Migration/
-├── app/
-│   ├── __init__.py
-│   ├── app.py                 # Main Reflex app and routing
-│   ├── components/
-│   │   ├── sidebar.py         # Navigation sidebar
-│   │   └── ui.py              # Reusable UI components
-│   ├── pages/
-│   │   ├── login.py           # Login page
-│   │   └── drivers.py         # Driver management page
-│   └── states/
-│       ├── base_state.py      # Base state class
-│       ├── auth_state.py      # Authentication state
-│       └── driver_state.py    # Driver management state
-├── backend/
-│   ├── __init__.py
-│   ├── app.py                 # Flask API server
-│   ├── models.py              # SQLAlchemy models
-│   ├── config.py              # Configuration
-│   └── fleetwise.db           # SQLite database (created on first run)
-├── assets/                     # Static assets
-├── requirements.txt            # Python dependencies
-├── rxconfig.py                # Reflex configuration
-├── start.sh                   # Linux/Mac startup script
-├── start.bat                  # Windows startup script
-└── setup_verify.py            # Setup verification script
-
-```
-
-## 🔧 Configuration
-
-### Backend API URL
-The frontend connects to the backend via the URL defined in `app/states/base_state.py`:
-
-```python
-API_BASE_URL = "http://127.0.0.1:8000/api"
-```
-
-### Reflex Configuration
-Frontend and backend ports are configured in `rxconfig.py`:
-
-```python
-config = rx.Config(
-    frontend_host="localhost",  # or "0.0.0.0" for WSL/Docker
-    frontend_port=3000,
-    backend_port=8001,
-    api_url="http://localhost:8001",
-)
-```
-
-## 🔐 API Endpoints
-
-### Authentication
-- `POST /api/auth/login` - Login with email and password
-
-### Drivers
-- `GET /api/drivers` - List all drivers
-- `GET /api/drivers/:id` - Get single driver
-- `POST /api/drivers` - Create new driver
-- `PUT /api/drivers/:id` - Update driver
-- `DELETE /api/drivers/:id` - Delete driver
-
-All driver endpoints require JWT authentication via `Authorization: Bearer <token>` header.
-
-## 🧪 Testing Your Setup
-
-Run the verification script:
-
-```bash
-python setup_verify.py
-```
-
-This will check:
-- Python version
-- Dependencies
-- File structure
-- Database
-- Backend server
-- Authentication
-
-## 🐛 Troubleshooting
-
-### Cannot access localhost:3000
-
-**Try these URLs:**
-- http://localhost:3000
-- http://127.0.0.1:3000
-- http://0.0.0.0:3000
-
-**Or change rxconfig.py:**
-```python
-frontend_host="localhost"  # instead of "0.0.0.0"
-```
-
-### "Cannot connect to backend" error
-
-1. Check if Flask is running:
+### Cloud Deployment (render.com, etc.)
+1. Copy `.env.example` to `.env`
+2. Set environment variables:
    ```bash
-   curl http://127.0.0.1:8000/health
+   FRONTEND_HOST=0.0.0.0
+   BACKEND_HOST=0.0.0.0
+   API_HOST=0.0.0.0  # Important for cloud
+   PORT=10000  # Or your cloud provider's port
    ```
 
-2. Restart the backend:
-   ```bash
-   # Press Ctrl+C in the backend terminal
-   python -m backend.app
-   ```
+## Architecture
 
-### Drivers page is empty
+```
+Port 3000: Frontend (React/Reflex)
+Port 8001: Reflex Backend (State Management)
+Port 8000: Flask API (REST)
+```
 
-1. Check browser console (F12) for errors
-2. Verify you're logged in
-3. Check backend logs for API errors
-4. Try adding a test driver via the UI
+## Features
 
-### Database issues
+- JWT Authentication
+- Driver CRUD operations
+- Dark theme UI
+- Responsive design
+- Automated log rotation
 
-Delete and recreate:
+## Log Management
+
+Logs are stored in `logs/` directory:
+- `backend.log` - Flask API logs
+- `reflex.log` - Frontend logs
+- `start.log`, `stop.log`, `restart.log` - Script logs
+
+Logs older than 24 hours are automatically cleaned on restart.
+Manual cleanup: `scripts/cleanup-logs.bat` or `scripts/cleanup-logs.sh`
+
+## Troubleshooting
+
+### Port Already in Use
+Run: `scripts/stop.bat` or `scripts/stop.sh`
+
+### Database Issues
 ```bash
 rm backend/fleetwise.db
-python -m backend.app
+python backend/app.py
 ```
 
-### Clear Reflex cache
-
+### Check Status
 ```bash
-reflex clean
-rm -rf .web
-reflex run
+scripts/status.bat  # Windows
+./scripts/status.sh # Linux/macOS
 ```
 
-### Port already in use
-
-**Find and kill process on port 8000:**
+### View Logs
 ```bash
-# Linux/Mac
-lsof -ti:8000 | xargs kill -9
-
-# Windows
-netstat -ano | findstr :8000
-taskkill /PID <PID> /F
+scripts/logs.bat    # Windows
+./scripts/logs.sh   # Linux/macOS
 ```
 
-**Find and kill process on port 3000:**
-```bash
-# Linux/Mac
-lsof -ti:3000 | xargs kill -9
+## Development
 
-# Windows
-netstat -ano | findstr :3000
-taskkill /PID <PID> /F
+### Project Structure
+```
+app/                    # Reflex frontend
+  pages/               # Page components
+  states/              # State management
+  components/          # UI components
+backend/               # Flask API
+  app.py              # API server
+  models.py           # Database models
+  config.py           # Configuration
+scripts/              # Management scripts
+logs/                 # Application logs (auto-cleanup)
 ```
 
-## 📚 Common Issues
+### Environment Variables
+See `.env.example` for all available configuration options.
 
-### Warning: "Event handler on_submit expects..."
-This is just a warning and can be safely ignored. The app works correctly.
+## Deployment
 
-### Warning: "Python 3.10 is deprecated"
-Consider upgrading to Python 3.11+, but 3.10 will work for now.
+### Local
+Use provided scripts in `scripts/` directory.
 
-### WSL Users
-For better performance and compatibility:
-1. Use WSL2 (not WSL1)
-2. Access via `http://<WSL_IP>:3000` from Windows browser
-3. Or set `frontend_host="0.0.0.0"` in rxconfig.py
+### Cloud (render.com, Railway, etc.)
+1. Set environment variables
+2. Start command: `reflex run --backend-only`
+3. Web command: `python backend/app.py`
 
-## 🔄 Development Workflow
+Or use Docker:
+```dockerfile
+FROM python:3.11
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+EXPOSE 3000 8000 8001
+CMD ["reflex", "run"]
+```
 
-1. **Make changes to Python files**
-2. **Reflex auto-reloads** (you'll see compilation in terminal)
-3. **Refresh browser** to see changes
-4. **Backend changes** require manual restart
+## Support
 
-### Hot Reload
-Reflex supports hot reload for most changes. Just save your Python files and refresh the browser.
-
-## 🎯 Next Steps
-
-Once you have the basic app running:
-
-1. **Add more drivers** via the UI
-2. **Explore the code** to understand the structure
-3. **Customize the UI** in `app/components/` and `app/pages/`
-4. **Add new features** (see plan.md for ideas)
-
-## 📖 Documentation
-
-- [Reflex Documentation](https://reflex.dev/docs/)
-- [Flask Documentation](https://flask.palletsprojects.com/)
-- [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
-
-## 🤝 Support
-
-If you encounter issues:
-
-1. Run `python setup_verify.py` to diagnose
-2. Check the TROUBLESHOOTING.md file
-3. Review backend and frontend terminal output
-4. Check browser console (F12) for errors
-
-## 📝 License
-
-This is a demo/POC project for learning purposes.
-
-## ✨ Credits
-
-Built with:
-- [Reflex](https://reflex.dev/) - Python web framework
-- [Flask](https://flask.palletsprojects.com/) - Python web framework
-- [SQLAlchemy](https://www.sqlalchemy.org/) - SQL toolkit
-- [Tailwind CSS](https://tailwindcss.com/) - CSS framework
+Run verification: `python scripts/setup_verify.py`
+Check status: `scripts/status.bat` or `./scripts/status.sh`
+View logs: `scripts/logs.bat` or `./scripts/logs.sh`

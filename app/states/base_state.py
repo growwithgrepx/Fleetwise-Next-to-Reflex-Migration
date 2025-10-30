@@ -1,9 +1,10 @@
 import reflex as rx
 from typing import Optional
 import logging
+import os
 
-API_HOST = "127.0.0.1"
-API_PORT = 8000
+API_HOST = os.getenv("API_HOST", "127.0.0.1")
+API_PORT = int(os.getenv("API_PORT", "8000"))
 API_BASE_URL = f"http://{API_HOST}:{API_PORT}/api"
 
 
