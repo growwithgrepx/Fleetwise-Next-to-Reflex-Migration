@@ -93,7 +93,7 @@ echo "[OK] Backend running (PID: $BACKEND_PID)"
 
 echo ""
 echo "[5/6] Starting Reflex frontend (ports 3000, 8001)..."
-reflex run > "$REFLEX_LOG" 2>&1 &
+reflex run > "logs/reflex.log" 2>&1 &
 FRONTEND_PID=$!
 echo $FRONTEND_PID > "logs/reflex.pid"
 
